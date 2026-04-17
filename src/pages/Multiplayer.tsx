@@ -330,6 +330,7 @@ const Multiplayer = () => {
         displayName: name.trim() || "Anonymous",
         start,
         target,
+        hintsDisabled: disableHints,
       });
       setMatchId(id);
       setPhase("room");
@@ -338,7 +339,7 @@ const Multiplayer = () => {
       setError("Couldn't create the room. Please try again.");
       setPhase("lobby");
     }
-  }, [name, playerId, pickPair]);
+  }, [name, playerId, pickPair, disableHints]);
 
   // ─── Join a private room by code ───
   const joinRoom = useCallback(
