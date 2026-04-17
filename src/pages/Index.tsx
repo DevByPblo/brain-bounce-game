@@ -42,6 +42,18 @@ import {
   Check,
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { setRaceActive } from "@/hooks/use-race-active";
 
 type Phase = "idle" | "loading" | "playing" | "won";
 
@@ -97,6 +109,12 @@ const Index = () => {
     if (phase !== "playing") return;
     const id = setInterval(() => setElapsed(Date.now() - startRef.current), 250);
     return () => clearInterval(id);
+  }, [phase]);
+
+  // Track race-active state globally so chrome (e.g. AuthMenu) can hide.
+  useEffect(() => {
+    setRaceActive(phase === "playing");
+    return () => setRaceActive(false);
   }, [phase]);
 
   const score = useMemo(
@@ -317,15 +335,28 @@ const Index = () => {
             <Metric label="Time" value={formatTime(elapsed)} />
             {undos > 0 && <Metric label="Undos" value={String(undos)} />}
             <Metric label="Score" value={score.toLocaleString()} accent />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPhase("idle")}
-              className="h-8 px-2 sm:px-3"
-            >
-              <RotateCcw className="w-3.5 h-3.5 sm:mr-1.5" />
-              <span className="hidden sm:inline">New</span>
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3">
+                  <RotateCcw className="w-3.5 h-3.5 sm:mr-1.5" />
+                  <span className="hidden sm:inline">New</span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Abandon this race?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Your current path, clicks, and time will be discarded. This run won't be scored.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Keep racing</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => setPhase("idle")}>
+                    Yes, exit
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
 
