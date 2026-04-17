@@ -133,7 +133,9 @@ export const WikiArticle = ({
       if (title) onNavigate(title);
     };
     root.addEventListener("click", handler);
+    // Reset scroll: the article's own scroller AND the window (mobile layouts).
     root.scrollTo?.({ top: 0 });
+    window.scrollTo({ top: 0, behavior: "auto" });
     return () => root.removeEventListener("click", handler);
   }, [processed, onNavigate]);
 
