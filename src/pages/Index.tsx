@@ -153,6 +153,23 @@ const Index = () => {
     }
   }, [mode, difficulty, customTarget]);
 
+  // ─── Auto-start from a shared URL: /?target=Octopus ───
+  useEffect(() => {
+    if (autoStartedRef.current) return;
+    const t = searchParams.get("target");
+    if (!t) return;
+    autoStartedRef.current = true;
+    setMode("custom");
+    setCustomTarget(t);
+    // Clear the param so refresh doesn't re-trigger.
+    setSearchParams({}, { replace: true });
+    // Defer to next tick so state settles before newGame reads it.
+    setTimeout(() => {
+      void newGame();
+    }, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const finishGame = useCallback(
     (
       finalClicks: number,
@@ -280,39 +297,46 @@ const Index = () => {
     <main className="relative z-10 min-h-screen flex flex-col">
       {/* Masthead */}
       <header className="border-b border-rule bg-card/60 backdrop-blur-sm">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <div className="serif text-2xl font-extrabold">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3 sm:gap-6">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="serif text-lg sm:text-2xl font-extrabold whitespace-nowrap">
               Wiki<span className="italic text-primary">Race</span>
             </div>
-            <div className="hidden md:flex items-center gap-2">
-              <span className="small-caps text-[10px] text-ink-faint">
-                {mode === "daily" ? "Daily challenge" : mode === "custom" ? "Custom target" : `${difficulty} mode`}
-              </span>
-            </div>
+            <span className="hidden md:inline small-caps text-[10px] text-ink-faint">
+              {mode === "daily" ? "Daily challenge" : mode === "custom" ? "Custom target" : `${difficulty} mode`}
+            </span>
           </div>
-          <div className="flex items-center gap-6 ticker">
+          <div className="flex items-center gap-3 sm:gap-6 ticker">
             <Metric label="Clicks" value={String(clicks)} />
             <Metric label="Time" value={formatTime(elapsed)} />
             {undos > 0 && <Metric label="Undos" value={String(undos)} />}
             <Metric label="Score" value={score.toLocaleString()} accent />
-            <Button variant="outline" size="sm" onClick={() => setPhase("idle")}>
-              <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> New
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPhase("idle")}
+              className="h-8 px-2 sm:px-3"
+            >
+              <RotateCcw className="w-3.5 h-3.5 sm:mr-1.5" />
+              <span className="hidden sm:inline">New</span>
             </Button>
           </div>
         </div>
 
         {/* Start → Target rail */}
-        <div className="max-w-6xl mx-auto px-6 pb-4">
-          <div className="paper-card flex items-stretch overflow-hidden">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-3 sm:pb-4">
+          <div className="paper-card flex flex-col sm:flex-row sm:items-stretch overflow-hidden">
             <RailEnd
               icon={<Flag className="w-3.5 h-3.5" />}
               label="From"
               title={start?.title ?? ""}
               subtitle={start?.extract ?? ""}
             />
-            <div className="flex items-center px-4 text-ink-faint">
+            <div className="hidden sm:flex items-center px-4 text-ink-faint">
               <ArrowRight className="w-4 h-4" />
+            </div>
+            <div className="sm:hidden border-t border-rule flex items-center justify-center py-1 text-ink-faint">
+              <ArrowRight className="w-4 h-4 rotate-90" />
             </div>
             <RailEnd
               icon={<Target className="w-3.5 h-3.5" />}
@@ -326,22 +350,24 @@ const Index = () => {
       </header>
 
       {/* Article + path */}
-      <div className="flex-1 max-w-6xl w-full mx-auto grid grid-cols-1 md:grid-cols-[1fr_260px] gap-6 px-6 py-6 min-h-0">
+      <div className="flex-1 max-w-6xl w-full mx-auto grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-4 sm:gap-6 px-3 sm:px-6 py-4 sm:py-6 min-h-0">
         <article className="paper-card overflow-hidden min-h-[60vh] flex flex-col">
-          <div className="px-8 pt-6 pb-3 border-b border-rule flex items-baseline justify-between gap-3">
-            <h1 className="serif text-3xl font-extrabold truncate">{currentTitle}</h1>
-            <div className="flex items-center gap-3 shrink-0">
+          <div className="px-4 sm:px-8 pt-4 sm:pt-6 pb-3 border-b border-rule flex items-baseline justify-between gap-3">
+            <h1 className="serif text-xl sm:text-3xl font-extrabold truncate">{currentTitle}</h1>
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               {path.length > 1 && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => undoTo(path.length - 2)}
                   title={`Go back one article (-${UNDO_PENALTY} pts)`}
+                  className="h-8 px-2 sm:px-3"
                 >
-                  <Undo2 className="w-3.5 h-3.5 mr-1.5" /> Undo
+                  <Undo2 className="w-3.5 h-3.5 sm:mr-1.5" />
+                  <span className="hidden sm:inline">Undo</span>
                 </Button>
               )}
-              <span className="mono text-xs text-ink-faint">
+              <span className="mono text-xs text-ink-faint whitespace-nowrap">
                 hop {path.length - 1}
               </span>
             </div>
@@ -356,9 +382,9 @@ const Index = () => {
           </div>
         </article>
 
-        <aside className="paper-card p-4 h-fit md:sticky md:top-6">
+        <aside className="paper-card p-4 h-fit lg:sticky lg:top-6">
           <div className="small-caps text-[10px] text-ink-faint mb-3">Path</div>
-          <ol className="serif text-sm space-y-1.5 max-h-[55vh] overflow-y-auto">
+          <ol className="serif text-sm space-y-1.5 max-h-[40vh] lg:max-h-[55vh] overflow-y-auto">
             {path.map((p, i) => {
               const isCurrent = i === path.length - 1;
               const canJump = !isCurrent;
@@ -370,7 +396,7 @@ const Index = () => {
                   {canJump ? (
                     <button
                       onClick={() => undoTo(i)}
-                      className="text-left text-ink-soft hover:text-primary hover:underline transition-colors"
+                      className="text-left text-ink-soft hover:text-primary hover:underline transition-colors break-words"
                       title={`Jump back here (-${
                         (path.length - 1 - i) * UNDO_PENALTY
                       } pts)`}
@@ -378,7 +404,7 @@ const Index = () => {
                       {p.title}
                     </button>
                   ) : (
-                    <span className="text-primary font-semibold">{p.title}</span>
+                    <span className="text-primary font-semibold break-words">{p.title}</span>
                   )}
                 </li>
               );
@@ -418,18 +444,18 @@ const IdleScreen = ({
   loading: boolean;
   error: string | null;
 }) => (
-  <main className="relative z-10 min-h-screen flex items-center justify-center px-6 py-16">
+  <main className="relative z-10 min-h-screen flex items-center justify-center px-4 sm:px-6 py-10 sm:py-16">
     <div className="max-w-3xl w-full text-center">
-      <div className="small-caps text-xs text-ink-soft mb-6">
+      <div className="small-caps text-xs text-ink-soft mb-4 sm:mb-6">
         Vol. I · No. 1 · An editorial diversion
       </div>
-      <h1 className="serif text-6xl md:text-7xl font-extrabold tracking-tight mb-4">
+      <h1 className="serif text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight mb-3 sm:mb-4">
         Wiki<span className="italic text-primary">Race</span>
       </h1>
-      <p className="serif italic text-xl text-muted-foreground mb-2">
+      <p className="serif italic text-base sm:text-xl text-muted-foreground mb-2">
         From one article to another, by hyperlink alone.
       </p>
-      <div className="hairline my-8 mx-auto w-24" />
+      <div className="hairline my-6 sm:my-8 mx-auto w-24" />
 
       {/* Mode */}
       <div className="grid sm:grid-cols-3 gap-3 mb-4 text-left">
