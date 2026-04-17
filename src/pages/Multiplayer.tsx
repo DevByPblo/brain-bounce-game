@@ -12,6 +12,7 @@ import {
   Copy,
   Flag,
   KeyRound,
+  Lightbulb,
   Loader2,
   Lock,
   MousePointerClick,
@@ -66,6 +67,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { setRaceActive } from "@/hooks/use-race-active";
+import { HintCard, HINT_COSTS } from "@/components/HintCard";
 
 type Phase = "lobby" | "searching" | "room" | "briefing" | "racing" | "finished";
 type Mode = "quick" | "private";
@@ -100,6 +102,8 @@ const Multiplayer = () => {
   const [path, setPath] = useState<string[]>([]);
   const [clicks, setClicks] = useState(0);
   const [elapsed, setElapsed] = useState(0);
+  const [hintsUsed, setHintsUsed] = useState(0);
+  const [hintOpen, setHintOpen] = useState(false);
   const [opponentHopKey, setOpponentHopKey] = useState(0);
   const lastOpponentTitleRef = useRef<string | null>(null);
   const startedAtRef = useRef<number>(0);
