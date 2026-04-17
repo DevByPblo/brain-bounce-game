@@ -37,8 +37,10 @@ import {
   MousePointerClick,
   Swords,
   Pencil,
+  Share2,
+  Check,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 type Phase = "idle" | "loading" | "playing" | "won";
 
@@ -70,6 +72,7 @@ const computeScore = (
 };
 
 const Index = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [phase, setPhase] = useState<Phase>("idle");
   const [mode, setMode] = useState<GameMode>("random");
   const [difficulty, setDifficulty] = useState<Difficulty>("normal");
@@ -85,6 +88,7 @@ const Index = () => {
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const startRef = useRef<number>(0);
+  const autoStartedRef = useRef(false);
 
   // Timer
   useEffect(() => {
@@ -257,53 +261,17 @@ const Index = () => {
 
   if (phase === "won") {
     return (
-      <main className="relative z-10 min-h-screen flex items-center justify-center px-6 py-16">
-        <div className="max-w-3xl w-full grid gap-6">
-          <div className="paper-card p-10 text-center">
-            <Trophy className="w-10 h-10 mx-auto text-primary mb-4" />
-            <div className="small-caps text-xs text-ink-soft mb-2">Final dispatch</div>
-            <h2 className="serif text-4xl font-extrabold mb-6">You arrived.</h2>
-
-            <div className="grid grid-cols-4 gap-3 mb-8">
-              <Stat label="Clicks" value={String(clicks)} />
-              <Stat label="Time" value={formatTime(elapsed)} />
-              <Stat label="Undos" value={String(undos)} />
-              <Stat label="Score" value={score.toLocaleString()} accent />
-            </div>
-
-            <div className="hairline mb-6" />
-            <div className="text-left">
-              <div className="small-caps text-xs text-ink-soft mb-2">Your path</div>
-              <ol className="serif text-sm space-y-1">
-                {path.map((p, i) => (
-                  <li key={i} className="flex gap-2">
-                    <span className="mono text-xs text-ink-faint w-6">
-                      {String(i + 1).padStart(2, "0")}
-                    </span>
-                    <span className={i === path.length - 1 ? "text-primary font-semibold" : ""}>
-                      {p.title}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            </div>
-
-            <Button onClick={newGame} size="lg" className="mt-8">
-              <RotateCcw className="w-4 h-4 mr-2" /> Race again
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={() => setPhase("idle")}
-              className="mt-8 ml-3"
-            >
-              Change settings
-            </Button>
-          </div>
-
-          <Leaderboard />
-        </div>
-      </main>
+      <WonScreen
+        clicks={clicks}
+        elapsed={elapsed}
+        undos={undos}
+        score={score}
+        path={path}
+        target={target}
+        mode={mode}
+        onPlayAgain={newGame}
+        onChangeSettings={() => setPhase("idle")}
+      />
     );
   }
 
