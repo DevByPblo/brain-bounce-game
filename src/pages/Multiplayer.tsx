@@ -888,6 +888,7 @@ const BriefingCard = ({
 );
 
 const Results = ({
+  match,
   me,
   opponent,
   playerId,
