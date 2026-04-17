@@ -487,7 +487,12 @@ const IdleScreen = ({
   onStart: () => void;
   loading: boolean;
   error: string | null;
-}) => (
+}) => {
+  const favorites = useFavoriteCategories(3);
+  const favoriteDefs = favorites
+    .map((label) => CATEGORIES.find((c) => c.label === label))
+    .filter((c): c is (typeof CATEGORIES)[number] => Boolean(c));
+  return (
   <main className="relative z-10 min-h-screen flex items-center justify-center px-4 sm:px-6 py-10 sm:py-16">
     <div className="max-w-3xl w-full text-center">
       <div className="small-caps text-xs text-ink-soft mb-4 sm:mb-6">
