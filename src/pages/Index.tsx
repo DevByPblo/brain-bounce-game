@@ -217,7 +217,8 @@ const Index = () => {
         finalClicks,
         finalElapsed,
         finalUndos,
-        difficulty
+        difficulty,
+        hintCost
       );
       if (start && target) {
         addEntry({
@@ -258,7 +259,7 @@ const Index = () => {
       setPath(finalPath);
       setPhase("won");
     },
-    [difficulty, mode, start, target]
+    [difficulty, mode, start, target, hintCost]
   );
 
   const navigate = useCallback(
