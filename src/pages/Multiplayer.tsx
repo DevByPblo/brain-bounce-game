@@ -601,6 +601,8 @@ const Multiplayer = () => {
 const Lobby = ({
   name,
   setName,
+  category,
+  setCategory,
   onFind,
   onCreateRoom,
   onJoinRoom,
@@ -608,6 +610,8 @@ const Lobby = ({
 }: {
   name: string;
   setName: (n: string) => void;
+  category: string;
+  setCategory: (c: string) => void;
   onFind: () => void;
   onCreateRoom: () => void;
   onJoinRoom: (code: string) => void;
