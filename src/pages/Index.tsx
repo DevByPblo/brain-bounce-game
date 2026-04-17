@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { WikiArticle } from "@/components/WikiArticle";
 import {
   getArticleHtml,
@@ -8,6 +9,7 @@ import {
   getSummary,
   getTitleForDifficulty,
   normaliseTitle,
+  resolveTitleFromQuery,
   type WikiSummary,
 } from "@/lib/wiki";
 import {
@@ -17,6 +19,9 @@ import {
   type GameMode,
   type LeaderboardEntry,
 } from "@/lib/leaderboard";
+import { ensureSession } from "@/lib/guestAuth";
+import { submitScore } from "@/lib/onlineScores";
+import { toast } from "sonner";
 import {
   ArrowRight,
   RotateCcw,
@@ -31,6 +36,7 @@ import {
   Clock,
   MousePointerClick,
   Swords,
+  Pencil,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -67,6 +73,7 @@ const Index = () => {
   const [phase, setPhase] = useState<Phase>("idle");
   const [mode, setMode] = useState<GameMode>("random");
   const [difficulty, setDifficulty] = useState<Difficulty>("normal");
+  const [customTarget, setCustomTarget] = useState<string>("");
   const [start, setStart] = useState<WikiSummary | null>(null);
   const [target, setTarget] = useState<WikiSummary | null>(null);
   const [currentTitle, setCurrentTitle] = useState<string>("");
@@ -106,6 +113,14 @@ const Index = () => {
         const pair = await getDailyPair();
         s = pair.start;
         t = pair.target;
+      } else if (mode === "custom") {
+        // Resolve user-entered word to a real article, then pick a random start.
+        t = await resolveTitleFromQuery(customTarget);
+        s = await getRandomTitle();
+        let guard = 0;
+        while (normaliseTitle(s) === normaliseTitle(t) && guard++ < 4) {
+          s = await getRandomTitle();
+        }
       } else {
         s = await getRandomTitle();
         t = await getTitleForDifficulty(difficulty);
@@ -128,10 +143,11 @@ const Index = () => {
       setPhase("playing");
     } catch (e) {
       console.error(e);
-      setError("Couldn't reach Wikipedia. Try again.");
+      const msg = e instanceof Error ? e.message : "Couldn't reach Wikipedia. Try again.";
+      setError(msg);
       setPhase("idle");
     }
-  }, [mode, difficulty]);
+  }, [mode, difficulty, customTarget]);
 
   const finishGame = useCallback(
     (
@@ -156,6 +172,30 @@ const Index = () => {
           mode,
           difficulty,
         });
+
+        // Auto-submit to the global online leaderboard for daily + custom races.
+        // Anonymous users get an auto-created session so they still appear on the board.
+        if (mode === "daily" || mode === "custom") {
+          (async () => {
+            const uid = await ensureSession();
+            if (!uid) return;
+            const res = await submitScore({
+              mode: "race",
+              score: finalScore,
+              clicks: finalClicks,
+              timeMs: finalElapsed,
+              details: {
+                start: start.title,
+                target: target.title,
+                gameMode: mode,
+                difficulty,
+              },
+            });
+            if (res.ok) {
+              toast.success("Score submitted to the global leaderboard!");
+            }
+          })();
+        }
       }
       setElapsed(finalElapsed);
       setPath(finalPath);
@@ -207,6 +247,8 @@ const Index = () => {
       setMode={setMode}
       difficulty={difficulty}
       setDifficulty={setDifficulty}
+      customTarget={customTarget}
+      setCustomTarget={setCustomTarget}
       onStart={newGame}
       loading={phase === "loading"}
       error={error}
@@ -277,7 +319,7 @@ const Index = () => {
             </div>
             <div className="hidden md:flex items-center gap-2">
               <span className="small-caps text-[10px] text-ink-faint">
-                {mode === "daily" ? "Daily challenge" : `${difficulty} mode`}
+                {mode === "daily" ? "Daily challenge" : mode === "custom" ? "Custom target" : `${difficulty} mode`}
               </span>
             </div>
           </div>
@@ -392,6 +434,8 @@ const IdleScreen = ({
   setMode,
   difficulty,
   setDifficulty,
+  customTarget,
+  setCustomTarget,
   onStart,
   loading,
   error,
@@ -400,6 +444,8 @@ const IdleScreen = ({
   setMode: (m: GameMode) => void;
   difficulty: Difficulty;
   setDifficulty: (d: Difficulty) => void;
+  customTarget: string;
+  setCustomTarget: (s: string) => void;
   onStart: () => void;
   loading: boolean;
   error: string | null;
@@ -418,7 +464,7 @@ const IdleScreen = ({
       <div className="hairline my-8 mx-auto w-24" />
 
       {/* Mode */}
-      <div className="grid sm:grid-cols-2 gap-3 mb-4 text-left">
+      <div className="grid sm:grid-cols-3 gap-3 mb-4 text-left">
         <ModeCard
           active={mode === "random"}
           onClick={() => setMode("random")}
@@ -433,12 +479,40 @@ const IdleScreen = ({
           title="Daily challenge"
           desc="Same start & target for everyone today."
         />
+        <ModeCard
+          active={mode === "custom"}
+          onClick={() => setMode("custom")}
+          icon={<Pencil className="w-4 h-4" />}
+          title="Custom target"
+          desc="Pick your own destination word."
+        />
       </div>
+
+      {/* Custom target input */}
+      {mode === "custom" && (
+        <div className="paper-card p-4 mb-4 text-left">
+          <label className="small-caps text-[10px] text-ink-faint block mb-2">
+            Target article
+          </label>
+          <Input
+            value={customTarget}
+            onChange={(e) => setCustomTarget(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && customTarget.trim()) onStart();
+            }}
+            placeholder="e.g. Octopus, Roman Empire, Quantum mechanics…"
+            className="serif"
+          />
+          <p className="text-[11px] text-ink-faint mt-2">
+            We'll find the matching Wikipedia article and drop you on a random page.
+          </p>
+        </div>
+      )}
 
       {/* Difficulty (only meaningful for random) */}
       <div
         className={`grid grid-cols-3 gap-3 mb-8 text-left transition-opacity ${
-          mode === "daily" ? "opacity-40 pointer-events-none" : ""
+          mode !== "random" ? "opacity-40 pointer-events-none" : ""
         }`}
       >
         {(["easy", "normal", "hard"] as Difficulty[]).map((d) => (
@@ -463,7 +537,7 @@ const IdleScreen = ({
       <Button
         size="lg"
         onClick={onStart}
-        disabled={loading}
+        disabled={loading || (mode === "custom" && !customTarget.trim())}
         className="px-10 py-6 text-base"
       >
         {loading ? (

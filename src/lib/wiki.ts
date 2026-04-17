@@ -198,3 +198,35 @@ export async function getArticleHtml(
 export function normaliseTitle(t: string): string {
   return decodeURIComponent(t).replace(/_/g, " ").trim().toLowerCase();
 }
+
+/**
+ * Resolve a free-text query to a real Wikipedia article title.
+ * Uses the search API + page summary to confirm the page exists.
+ * Throws if nothing reasonable is found.
+ */
+export async function resolveTitleFromQuery(query: string): Promise<string> {
+  const q = query.trim();
+  if (!q) throw new Error("Please enter a word.");
+
+  // 1. Try search API (best match).
+  const searchUrl = apiUrl({
+    action: "query",
+    list: "search",
+    srsearch: q,
+    srlimit: "5",
+    srnamespace: "0",
+  });
+  const res = await fetch(searchUrl);
+  const json = await res.json();
+  const hits: { title: string }[] = json?.query?.search ?? [];
+  const candidate = hits.find((h) => !isBadTitle(h.title)) ?? hits[0];
+  if (!candidate) throw new Error(`No Wikipedia article found for "${q}".`);
+
+  // 2. Confirm via summary endpoint (returns canonical title, follows redirects).
+  try {
+    const sum = await getSummary(candidate.title);
+    return sum.title;
+  } catch {
+    return candidate.title;
+  }
+}
