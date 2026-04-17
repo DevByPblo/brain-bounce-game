@@ -272,6 +272,8 @@ const Index = () => {
       setMode={setMode}
       difficulty={difficulty}
       setDifficulty={setDifficulty}
+      category={category}
+      setCategory={setCategory}
       customTarget={customTarget}
       setCustomTarget={setCustomTarget}
       onStart={newGame}
