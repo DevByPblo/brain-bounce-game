@@ -12,6 +12,7 @@ import {
   resolveTitleFromQuery,
   type WikiSummary,
 } from "@/lib/wiki";
+import { CATEGORIES, getTitleForCategory } from "@/lib/categories";
 import {
   addEntry,
   getLeaderboardView,
