@@ -12,6 +12,8 @@ export type MatchRow = {
   started_at: string | null;
   finished_at: string | null;
   winner_player_id: string | null;
+  room_code: string | null;
+  is_private: boolean;
 };
 
 export type MatchPlayerRow = {
@@ -25,6 +27,7 @@ export type MatchPlayerRow = {
   finished_at: string | null;
   time_ms: number | null;
   joined_at: string;
+  is_bot: boolean;
 };
 
 export async function joinQuickMatch(args: {
