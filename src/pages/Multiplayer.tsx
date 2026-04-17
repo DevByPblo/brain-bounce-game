@@ -681,6 +681,8 @@ const Lobby = ({
   setName,
   category,
   setCategory,
+  disableHints,
+  setDisableHints,
   onFind,
   onCreateRoom,
   onJoinRoom,
@@ -690,6 +692,8 @@ const Lobby = ({
   setName: (n: string) => void;
   category: string;
   setCategory: (c: string) => void;
+  disableHints: boolean;
+  setDisableHints: (v: boolean) => void;
   onFind: () => void;
   onCreateRoom: () => void;
   onJoinRoom: (code: string) => void;
