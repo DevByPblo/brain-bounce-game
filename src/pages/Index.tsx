@@ -105,9 +105,16 @@ const Index = () => {
   const [clicks, setClicks] = useState(0);
   const [undos, setUndos] = useState(0);
   const [elapsed, setElapsed] = useState(0);
+  const [hintsUsed, setHintsUsed] = useState(0);
+  const [hintOpen, setHintOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const startRef = useRef<number>(0);
   const autoStartedRef = useRef(false);
+
+  const hintCost = useMemo(
+    () => HINT_COSTS.slice(0, hintsUsed).reduce((a, b) => a + b, 0),
+    [hintsUsed]
+  );
 
   // Timer
   useEffect(() => {
@@ -123,8 +130,8 @@ const Index = () => {
   }, [phase]);
 
   const score = useMemo(
-    () => computeScore(clicks, elapsed, undos, difficulty),
-    [clicks, elapsed, undos, difficulty]
+    () => computeScore(clicks, elapsed, undos, difficulty, hintCost),
+    [clicks, elapsed, undos, difficulty, hintCost]
   );
 
   const newGame = useCallback(async () => {
