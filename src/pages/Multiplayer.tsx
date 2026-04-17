@@ -235,6 +235,21 @@ const Multiplayer = () => {
     return () => clearInterval(id);
   }, [phase]);
 
+  // ─── Pulse the opponent card whenever their current article changes ───
+  // Bumping a counter forces the PlayerCard to remount its animated wrapper,
+  // re-triggering the CSS pulse without needing to clear/reapply a class.
+  useEffect(() => {
+    const t = opponent?.current_title ?? null;
+    if (t && t !== lastOpponentTitleRef.current) {
+      // Skip the very first observation (it's the opponent's starting article,
+      // not a hop) — only pulse on actual changes.
+      if (lastOpponentTitleRef.current !== null) {
+        setOpponentHopKey((k) => k + 1);
+      }
+      lastOpponentTitleRef.current = t;
+    }
+  }, [opponent?.current_title]);
+
   // ─── Save name on change ───
   useEffect(() => {
     setPlayerName(name);
