@@ -141,6 +141,7 @@ const Index = () => {
     setClicks(0);
     setUndos(0);
     setElapsed(0);
+    setHintsUsed(0);
     setArticleHtml("");
     try {
       let s: string;
