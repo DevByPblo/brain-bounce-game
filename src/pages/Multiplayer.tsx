@@ -1091,6 +1091,7 @@ const PlayerCard = ({
   finished,
   self,
   isBot,
+  pulseKey,
 }: {
   label: string;
   name: string;
@@ -1100,11 +1101,14 @@ const PlayerCard = ({
   finished: boolean;
   self?: boolean;
   isBot?: boolean;
+  pulseKey?: number;
 }) => (
   <div
+    // `key` forces a remount on each pulseKey bump, re-running the CSS animation.
+    key={pulseKey ?? "static"}
     className={`paper-card p-3 flex items-center justify-between gap-3 ${
       self ? "ring-1 ring-primary/40" : ""
-    }`}
+    } ${pulseKey ? "opponent-hop-pulse" : ""}`}
   >
     <div className="min-w-0">
       <div className="flex items-center gap-1.5 mb-0.5">
