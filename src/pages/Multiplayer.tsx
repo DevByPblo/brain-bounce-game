@@ -84,6 +84,8 @@ const Multiplayer = () => {
   const [path, setPath] = useState<string[]>([]);
   const [clicks, setClicks] = useState(0);
   const [elapsed, setElapsed] = useState(0);
+  const [opponentHopKey, setOpponentHopKey] = useState(0);
+  const lastOpponentTitleRef = useRef<string | null>(null);
   const startedAtRef = useRef<number>(0);
   const finishedRef = useRef(false);
   const botRunnerRef = useRef<BotRunner | null>(null);
@@ -232,6 +234,21 @@ const Multiplayer = () => {
     const id = setInterval(() => setElapsed(Date.now() - startedAtRef.current), 250);
     return () => clearInterval(id);
   }, [phase]);
+
+  // ─── Pulse the opponent card whenever their current article changes ───
+  // Bumping a counter forces the PlayerCard to remount its animated wrapper,
+  // re-triggering the CSS pulse without needing to clear/reapply a class.
+  useEffect(() => {
+    const t = opponent?.current_title ?? null;
+    if (t && t !== lastOpponentTitleRef.current) {
+      // Skip the very first observation (it's the opponent's starting article,
+      // not a hop) — only pulse on actual changes.
+      if (lastOpponentTitleRef.current !== null) {
+        setOpponentHopKey((k) => k + 1);
+      }
+      lastOpponentTitleRef.current = t;
+    }
+  }, [opponent?.current_title]);
 
   // ─── Save name on change ───
   useEffect(() => {
@@ -524,6 +541,7 @@ const Multiplayer = () => {
             currentTitle={opponentTitle}
             finished={opponentFinished}
             isBot={opponent?.is_bot}
+            pulseKey={opponentHopKey}
           />
         </div>
 
@@ -1073,6 +1091,7 @@ const PlayerCard = ({
   finished,
   self,
   isBot,
+  pulseKey,
 }: {
   label: string;
   name: string;
@@ -1082,11 +1101,14 @@ const PlayerCard = ({
   finished: boolean;
   self?: boolean;
   isBot?: boolean;
+  pulseKey?: number;
 }) => (
   <div
+    // `key` forces a remount on each pulseKey bump, re-running the CSS animation.
+    key={pulseKey ?? "static"}
     className={`paper-card p-3 flex items-center justify-between gap-3 ${
       self ? "ring-1 ring-primary/40" : ""
-    }`}
+    } ${pulseKey ? "opponent-hop-pulse" : ""}`}
   >
     <div className="min-w-0">
       <div className="flex items-center gap-1.5 mb-0.5">

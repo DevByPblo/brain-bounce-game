@@ -313,4 +313,17 @@
     animation: score-pop 1100ms ease-out forwards;
     z-index: 100;
   }
+
+  /* Opponent "hop landed" pulse — fires whenever their current_title changes */
+  @keyframes opponent-hop {
+    0%   { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.55); background-color: hsl(var(--primary) / 0.08); }
+    60%  { box-shadow: 0 0 0 8px hsl(var(--primary) / 0); background-color: hsl(var(--primary) / 0.04); }
+    100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0); background-color: transparent; }
+  }
+  .opponent-hop-pulse {
+    animation: opponent-hop 720ms ease-out;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .opponent-hop-pulse { animation: none; }
+  }
 }
