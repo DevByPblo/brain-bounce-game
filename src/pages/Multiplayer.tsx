@@ -555,22 +555,24 @@ const Multiplayer = () => {
           </div>
           <div className="flex items-center gap-3 sm:gap-5 ticker">
             <Metric label="Time" value={formatTime(elapsed)} />
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 px-2 sm:px-3"
-              onClick={() => setHintOpen(true)}
-              title={
-                hintsUsed >= 3
-                  ? "All hints used"
-                  : `Reveal a hint about your target`
-              }
-            >
-              <Lightbulb className="w-3.5 h-3.5 sm:mr-1.5" />
-              <span className="hidden sm:inline">
-                Hint{hintsUsed > 0 ? ` ${hintsUsed}/3` : ""}
-              </span>
-            </Button>
+            {!match?.hints_disabled && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-2 sm:px-3"
+                onClick={() => setHintOpen(true)}
+                title={
+                  hintsUsed >= 3
+                    ? "All hints used"
+                    : `Reveal a hint about your target`
+                }
+              >
+                <Lightbulb className="w-3.5 h-3.5 sm:mr-1.5" />
+                <span className="hidden sm:inline">
+                  Hint{hintsUsed > 0 ? ` ${hintsUsed}/3` : ""}
+                </span>
+              </Button>
+            )}
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3">
