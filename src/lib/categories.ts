@@ -137,6 +137,27 @@ export const CATEGORIES: CategoryDef[] = [
     fallback: ["Forest", "Coral reef", "Tundra", "Rainforest", "Wildflower", "Mountain", "Desert", "River"],
   },
   {
+    label: "Nature",
+    wikiCategories: ["Nature"],
+    fallback: ["Forest", "Coral reef", "Tundra", "Rainforest", "Wildflower", "Mountain", "Desert", "River"],
+  },
+  {
+    label: "People",
+    wikiCategories: [
+      "Nobel laureates",
+      "Heads of state",
+      "American film actors",
+      "English-language singers",
+      "Association football players",
+    ],
+    fallback: [
+      "Albert Einstein", "Leonardo da Vinci", "Marie Curie", "Nelson Mandela",
+      "Cleopatra", "Mahatma Gandhi", "William Shakespeare", "Abraham Lincoln",
+      "Frida Kahlo", "Steve Jobs", "Oprah Winfrey", "Muhammad Ali",
+      "Beyoncé", "Stephen Hawking", "Pelé", "Queen Elizabeth II",
+    ],
+  },
+  {
     label: "Philosophy",
     wikiCategories: ["Philosophy", "Philosophers"],
     fallback: ["Plato", "Aristotle", "Friedrich Nietzsche", "Stoicism", "Existentialism", "Immanuel Kant", "Confucius", "René Descartes"],
