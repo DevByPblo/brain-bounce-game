@@ -52,7 +52,7 @@ import {
 } from "@/lib/bot";
 import { toast } from "sonner";
 
-type Phase = "lobby" | "searching" | "room" | "racing" | "finished";
+type Phase = "lobby" | "searching" | "room" | "briefing" | "racing" | "finished";
 type Mode = "quick" | "private";
 
 const formatTime = (ms: number) => {
@@ -149,6 +149,8 @@ const Multiplayer = () => {
     if (!match) return;
 
     if (match.status === "playing" && (phase === "searching" || phase === "room")) {
+      // Show briefing immediately while we preload article + summaries.
+      setPhase("briefing");
       void (async () => {
         try {
           const [sSum, tSum, art] = await Promise.all([
@@ -161,10 +163,6 @@ const Multiplayer = () => {
           setCurrentTitle(art.title);
           setArticleHtml(art.html);
           setPath([art.title]);
-          startedAtRef.current = match.started_at
-            ? new Date(match.started_at).getTime()
-            : Date.now();
-          setPhase("racing");
         } catch (e) {
           console.error(e);
           setError("Couldn't load the articles. Please try again.");
@@ -176,6 +174,14 @@ const Multiplayer = () => {
       setPhase("finished");
     }
   }, [match, phase]);
+
+  // ─── Begin race when briefing is dismissed (countdown finished) ───
+  const handleBriefingDone = useCallback(() => {
+    if (!articleHtml || !startSummary || !targetSummary) return;
+    startedAtRef.current = Date.now();
+    setElapsed(0);
+    setPhase("racing");
+  }, [articleHtml, startSummary, targetSummary]);
 
   // ─── Drive the bot when one is in the match ───
   useEffect(() => {
