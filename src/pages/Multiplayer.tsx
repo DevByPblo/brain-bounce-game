@@ -84,6 +84,8 @@ const Multiplayer = () => {
   const [path, setPath] = useState<string[]>([]);
   const [clicks, setClicks] = useState(0);
   const [elapsed, setElapsed] = useState(0);
+  const [opponentHopKey, setOpponentHopKey] = useState(0);
+  const lastOpponentTitleRef = useRef<string | null>(null);
   const startedAtRef = useRef<number>(0);
   const finishedRef = useRef(false);
   const botRunnerRef = useRef<BotRunner | null>(null);
