@@ -28,6 +28,7 @@ import {
   normaliseTitle,
   type WikiSummary,
 } from "@/lib/wiki";
+import { CATEGORIES, getTitleForCategory } from "@/lib/categories";
 import { getPlayerId, getPlayerName, setPlayerName } from "@/lib/player";
 import {
   addBotToMatch,
@@ -69,6 +70,7 @@ const Multiplayer = () => {
   const [phase, setPhase] = useState<Phase>("lobby");
   const [mode, setMode] = useState<Mode>("quick");
   const [name, setName] = useState<string>(() => getPlayerName());
+  const [category, setCategory] = useState<string>("");
   const playerId = useMemo(() => getPlayerId(), []);
   const [error, setError] = useState<string | null>(null);
 
@@ -255,16 +257,18 @@ const Multiplayer = () => {
     setPlayerName(name);
   }, [name]);
 
-  // ─── Pick a random start/target pair ───
+  // ─── Pick a random start/target pair (target may be category-constrained) ───
   const pickPair = useCallback(async () => {
-    let s = await getRandomTitle();
-    let t = await getRandomTitle();
+    const s = await getRandomTitle();
+    const pickTarget = () =>
+      category ? getTitleForCategory(category) : getRandomTitle();
+    let t = await pickTarget();
     let guard = 0;
     while (normaliseTitle(s) === normaliseTitle(t) && guard++ < 4) {
-      t = await getRandomTitle();
+      t = await pickTarget();
     }
     return { start: s, target: t };
-  }, []);
+  }, [category]);
 
   // ─── Find a quick match ───
   const findMatch = useCallback(async () => {
@@ -428,6 +432,8 @@ const Multiplayer = () => {
       <Lobby
         name={name}
         setName={setName}
+        category={category}
+        setCategory={setCategory}
         onFind={findMatch}
         onCreateRoom={createRoom}
         onJoinRoom={joinRoom}
@@ -595,6 +601,8 @@ const Multiplayer = () => {
 const Lobby = ({
   name,
   setName,
+  category,
+  setCategory,
   onFind,
   onCreateRoom,
   onJoinRoom,
@@ -602,6 +610,8 @@ const Lobby = ({
 }: {
   name: string;
   setName: (n: string) => void;
+  category: string;
+  setCategory: (c: string) => void;
   onFind: () => void;
   onCreateRoom: () => void;
   onJoinRoom: (code: string) => void;
@@ -641,6 +651,40 @@ const Lobby = ({
           />
           <p className="text-[11px] text-ink-faint mt-2">
             This is shown to your opponent during the race.
+          </p>
+        </div>
+
+        <div className="paper-card p-5 text-left mb-6">
+          <label
+            htmlFor="mp-category-select"
+            className="small-caps text-[10px] text-ink-faint mb-2 flex items-center justify-between"
+          >
+            <span>Target category (optional)</span>
+            {category && (
+              <button
+                type="button"
+                onClick={() => setCategory("")}
+                className="text-[10px] text-primary hover:underline normal-case"
+              >
+                Clear
+              </button>
+            )}
+          </label>
+          <select
+            id="mp-category-select"
+            className="select-category w-full h-10 rounded-md border border-input bg-background px-3 serif text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            <option value="">Any Category</option>
+            {CATEGORIES.map((c) => (
+              <option key={c.label} value={c.label}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-[11px] text-ink-faint mt-2">
+            When set, both racers head toward a target inside this category.
           </p>
         </div>
 

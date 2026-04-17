@@ -12,6 +12,7 @@ import {
   resolveTitleFromQuery,
   type WikiSummary,
 } from "@/lib/wiki";
+import { CATEGORIES, getTitleForCategory } from "@/lib/categories";
 import {
   addEntry,
   getLeaderboardView,
@@ -76,6 +77,7 @@ const Index = () => {
   const [phase, setPhase] = useState<Phase>("idle");
   const [mode, setMode] = useState<GameMode>("random");
   const [difficulty, setDifficulty] = useState<Difficulty>("normal");
+  const [category, setCategory] = useState<string>("");
   const [customTarget, setCustomTarget] = useState<string>("");
   const [start, setStart] = useState<WikiSummary | null>(null);
   const [target, setTarget] = useState<WikiSummary | null>(null);
@@ -127,10 +129,12 @@ const Index = () => {
         }
       } else {
         s = await getRandomTitle();
-        t = await getTitleForDifficulty(difficulty);
+        const pickTarget = () =>
+          category ? getTitleForCategory(category) : getTitleForDifficulty(difficulty);
+        t = await pickTarget();
         let guard = 0;
         while (normaliseTitle(s) === normaliseTitle(t) && guard++ < 4) {
-          t = await getTitleForDifficulty(difficulty);
+          t = await pickTarget();
         }
       }
       const [sSum, tSum, art] = await Promise.all([
@@ -151,7 +155,7 @@ const Index = () => {
       setError(msg);
       setPhase("idle");
     }
-  }, [mode, difficulty, customTarget]);
+  }, [mode, difficulty, category, customTarget]);
 
   // ─── Auto-start from a shared URL: /?target=Octopus ───
   useEffect(() => {
@@ -268,6 +272,8 @@ const Index = () => {
       setMode={setMode}
       difficulty={difficulty}
       setDifficulty={setDifficulty}
+      category={category}
+      setCategory={setCategory}
       customTarget={customTarget}
       setCustomTarget={setCustomTarget}
       onStart={newGame}
@@ -428,6 +434,8 @@ const IdleScreen = ({
   setMode,
   difficulty,
   setDifficulty,
+  category,
+  setCategory,
   customTarget,
   setCustomTarget,
   onStart,
@@ -438,6 +446,8 @@ const IdleScreen = ({
   setMode: (m: GameMode) => void;
   difficulty: Difficulty;
   setDifficulty: (d: Difficulty) => void;
+  category: string;
+  setCategory: (c: string) => void;
   customTarget: string;
   setCustomTarget: (s: string) => void;
   onStart: () => void;
@@ -505,7 +515,7 @@ const IdleScreen = ({
 
       {/* Difficulty (only meaningful for random) */}
       <div
-        className={`grid grid-cols-3 gap-3 mb-8 text-left transition-opacity ${
+        className={`grid grid-cols-3 gap-3 mb-4 text-left transition-opacity ${
           mode !== "random" ? "opacity-40 pointer-events-none" : ""
         }`}
       >
@@ -524,6 +534,45 @@ const IdleScreen = ({
             }
           />
         ))}
+      </div>
+
+      {/* Category narrowing (random mode only) */}
+      <div
+        className={`paper-card p-4 mb-8 text-left transition-opacity ${
+          mode !== "random" ? "opacity-40 pointer-events-none" : ""
+        }`}
+      >
+        <label
+          htmlFor="category-select"
+          className="small-caps text-[10px] text-ink-faint mb-2 flex items-center justify-between"
+        >
+          <span>Target category (optional)</span>
+          {category && (
+            <button
+              type="button"
+              onClick={() => setCategory("")}
+              className="text-[10px] text-primary hover:underline normal-case"
+            >
+              Clear
+            </button>
+          )}
+        </label>
+        <select
+          id="category-select"
+          className="select-category w-full h-10 rounded-md border border-input bg-background px-3 serif text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+        >
+          <option value="">Any Category</option>
+          {CATEGORIES.map((c) => (
+            <option key={c.label} value={c.label}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+        <p className="text-[11px] text-ink-faint mt-2">
+          When set, your target will be drawn from this category.
+        </p>
       </div>
 
       {error && <p className="text-destructive text-sm mb-4">{error}</p>}
