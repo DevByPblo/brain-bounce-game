@@ -468,7 +468,7 @@ const Multiplayer = () => {
   const opponentClicks = opponent?.clicks ?? 0;
   const opponentFinished = !!opponent?.finished_at;
   const opponentTitle = opponent?.current_title ?? null;
-  const myTitle = currentTitle;
+  
 
   // A bit of theatrical tension for the player: as their opponent racks up
   // clicks, surface increasingly-anxious flavour text on the player's own
