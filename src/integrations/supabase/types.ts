@@ -105,6 +105,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_id: string | null
           created_at: string
           display_name: string
           id: string
@@ -112,6 +113,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          avatar_id?: string | null
           created_at?: string
           display_name: string
           id?: string
@@ -119,6 +121,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          avatar_id?: string | null
           created_at?: string
           display_name?: string
           id?: string
@@ -207,6 +210,10 @@ export type Database = {
           p_target: string
         }
         Returns: string
+      }
+      migrate_anonymous_scores: {
+        Args: { p_from_user: string }
+        Returns: number
       }
       report_progress: {
         Args: {

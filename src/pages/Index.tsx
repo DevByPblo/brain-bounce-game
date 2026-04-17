@@ -37,8 +37,10 @@ import {
   MousePointerClick,
   Swords,
   Pencil,
+  Share2,
+  Check,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 type Phase = "idle" | "loading" | "playing" | "won";
 
@@ -70,6 +72,7 @@ const computeScore = (
 };
 
 const Index = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [phase, setPhase] = useState<Phase>("idle");
   const [mode, setMode] = useState<GameMode>("random");
   const [difficulty, setDifficulty] = useState<Difficulty>("normal");
@@ -85,6 +88,7 @@ const Index = () => {
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const startRef = useRef<number>(0);
+  const autoStartedRef = useRef(false);
 
   // Timer
   useEffect(() => {
@@ -148,6 +152,23 @@ const Index = () => {
       setPhase("idle");
     }
   }, [mode, difficulty, customTarget]);
+
+  // ─── Auto-start from a shared URL: /?target=Octopus ───
+  useEffect(() => {
+    if (autoStartedRef.current) return;
+    const t = searchParams.get("target");
+    if (!t) return;
+    autoStartedRef.current = true;
+    setMode("custom");
+    setCustomTarget(t);
+    // Clear the param so refresh doesn't re-trigger.
+    setSearchParams({}, { replace: true });
+    // Defer to next tick so state settles before newGame reads it.
+    setTimeout(() => {
+      void newGame();
+    }, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const finishGame = useCallback(
     (
@@ -257,53 +278,17 @@ const Index = () => {
 
   if (phase === "won") {
     return (
-      <main className="relative z-10 min-h-screen flex items-center justify-center px-6 py-16">
-        <div className="max-w-3xl w-full grid gap-6">
-          <div className="paper-card p-10 text-center">
-            <Trophy className="w-10 h-10 mx-auto text-primary mb-4" />
-            <div className="small-caps text-xs text-ink-soft mb-2">Final dispatch</div>
-            <h2 className="serif text-4xl font-extrabold mb-6">You arrived.</h2>
-
-            <div className="grid grid-cols-4 gap-3 mb-8">
-              <Stat label="Clicks" value={String(clicks)} />
-              <Stat label="Time" value={formatTime(elapsed)} />
-              <Stat label="Undos" value={String(undos)} />
-              <Stat label="Score" value={score.toLocaleString()} accent />
-            </div>
-
-            <div className="hairline mb-6" />
-            <div className="text-left">
-              <div className="small-caps text-xs text-ink-soft mb-2">Your path</div>
-              <ol className="serif text-sm space-y-1">
-                {path.map((p, i) => (
-                  <li key={i} className="flex gap-2">
-                    <span className="mono text-xs text-ink-faint w-6">
-                      {String(i + 1).padStart(2, "0")}
-                    </span>
-                    <span className={i === path.length - 1 ? "text-primary font-semibold" : ""}>
-                      {p.title}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            </div>
-
-            <Button onClick={newGame} size="lg" className="mt-8">
-              <RotateCcw className="w-4 h-4 mr-2" /> Race again
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={() => setPhase("idle")}
-              className="mt-8 ml-3"
-            >
-              Change settings
-            </Button>
-          </div>
-
-          <Leaderboard />
-        </div>
-      </main>
+      <WonScreen
+        clicks={clicks}
+        elapsed={elapsed}
+        undos={undos}
+        score={score}
+        path={path}
+        target={target}
+        mode={mode}
+        onPlayAgain={newGame}
+        onChangeSettings={() => setPhase("idle")}
+      />
     );
   }
 
@@ -312,39 +297,46 @@ const Index = () => {
     <main className="relative z-10 min-h-screen flex flex-col">
       {/* Masthead */}
       <header className="border-b border-rule bg-card/60 backdrop-blur-sm">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <div className="serif text-2xl font-extrabold">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3 sm:gap-6">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="serif text-lg sm:text-2xl font-extrabold whitespace-nowrap">
               Wiki<span className="italic text-primary">Race</span>
             </div>
-            <div className="hidden md:flex items-center gap-2">
-              <span className="small-caps text-[10px] text-ink-faint">
-                {mode === "daily" ? "Daily challenge" : mode === "custom" ? "Custom target" : `${difficulty} mode`}
-              </span>
-            </div>
+            <span className="hidden md:inline small-caps text-[10px] text-ink-faint">
+              {mode === "daily" ? "Daily challenge" : mode === "custom" ? "Custom target" : `${difficulty} mode`}
+            </span>
           </div>
-          <div className="flex items-center gap-6 ticker">
+          <div className="flex items-center gap-3 sm:gap-6 ticker">
             <Metric label="Clicks" value={String(clicks)} />
             <Metric label="Time" value={formatTime(elapsed)} />
             {undos > 0 && <Metric label="Undos" value={String(undos)} />}
             <Metric label="Score" value={score.toLocaleString()} accent />
-            <Button variant="outline" size="sm" onClick={() => setPhase("idle")}>
-              <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> New
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPhase("idle")}
+              className="h-8 px-2 sm:px-3"
+            >
+              <RotateCcw className="w-3.5 h-3.5 sm:mr-1.5" />
+              <span className="hidden sm:inline">New</span>
             </Button>
           </div>
         </div>
 
         {/* Start → Target rail */}
-        <div className="max-w-6xl mx-auto px-6 pb-4">
-          <div className="paper-card flex items-stretch overflow-hidden">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-3 sm:pb-4">
+          <div className="paper-card flex flex-col sm:flex-row sm:items-stretch overflow-hidden">
             <RailEnd
               icon={<Flag className="w-3.5 h-3.5" />}
               label="From"
               title={start?.title ?? ""}
               subtitle={start?.extract ?? ""}
             />
-            <div className="flex items-center px-4 text-ink-faint">
+            <div className="hidden sm:flex items-center px-4 text-ink-faint">
               <ArrowRight className="w-4 h-4" />
+            </div>
+            <div className="sm:hidden border-t border-rule flex items-center justify-center py-1 text-ink-faint">
+              <ArrowRight className="w-4 h-4 rotate-90" />
             </div>
             <RailEnd
               icon={<Target className="w-3.5 h-3.5" />}
@@ -358,22 +350,24 @@ const Index = () => {
       </header>
 
       {/* Article + path */}
-      <div className="flex-1 max-w-6xl w-full mx-auto grid grid-cols-1 md:grid-cols-[1fr_260px] gap-6 px-6 py-6 min-h-0">
+      <div className="flex-1 max-w-6xl w-full mx-auto grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-4 sm:gap-6 px-3 sm:px-6 py-4 sm:py-6 min-h-0">
         <article className="paper-card overflow-hidden min-h-[60vh] flex flex-col">
-          <div className="px-8 pt-6 pb-3 border-b border-rule flex items-baseline justify-between gap-3">
-            <h1 className="serif text-3xl font-extrabold truncate">{currentTitle}</h1>
-            <div className="flex items-center gap-3 shrink-0">
+          <div className="px-4 sm:px-8 pt-4 sm:pt-6 pb-3 border-b border-rule flex items-baseline justify-between gap-3">
+            <h1 className="serif text-xl sm:text-3xl font-extrabold truncate">{currentTitle}</h1>
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               {path.length > 1 && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => undoTo(path.length - 2)}
                   title={`Go back one article (-${UNDO_PENALTY} pts)`}
+                  className="h-8 px-2 sm:px-3"
                 >
-                  <Undo2 className="w-3.5 h-3.5 mr-1.5" /> Undo
+                  <Undo2 className="w-3.5 h-3.5 sm:mr-1.5" />
+                  <span className="hidden sm:inline">Undo</span>
                 </Button>
               )}
-              <span className="mono text-xs text-ink-faint">
+              <span className="mono text-xs text-ink-faint whitespace-nowrap">
                 hop {path.length - 1}
               </span>
             </div>
@@ -388,9 +382,9 @@ const Index = () => {
           </div>
         </article>
 
-        <aside className="paper-card p-4 h-fit md:sticky md:top-6">
+        <aside className="paper-card p-4 h-fit lg:sticky lg:top-6">
           <div className="small-caps text-[10px] text-ink-faint mb-3">Path</div>
-          <ol className="serif text-sm space-y-1.5 max-h-[55vh] overflow-y-auto">
+          <ol className="serif text-sm space-y-1.5 max-h-[40vh] lg:max-h-[55vh] overflow-y-auto">
             {path.map((p, i) => {
               const isCurrent = i === path.length - 1;
               const canJump = !isCurrent;
@@ -402,7 +396,7 @@ const Index = () => {
                   {canJump ? (
                     <button
                       onClick={() => undoTo(i)}
-                      className="text-left text-ink-soft hover:text-primary hover:underline transition-colors"
+                      className="text-left text-ink-soft hover:text-primary hover:underline transition-colors break-words"
                       title={`Jump back here (-${
                         (path.length - 1 - i) * UNDO_PENALTY
                       } pts)`}
@@ -410,7 +404,7 @@ const Index = () => {
                       {p.title}
                     </button>
                   ) : (
-                    <span className="text-primary font-semibold">{p.title}</span>
+                    <span className="text-primary font-semibold break-words">{p.title}</span>
                   )}
                 </li>
               );
@@ -450,18 +444,18 @@ const IdleScreen = ({
   loading: boolean;
   error: string | null;
 }) => (
-  <main className="relative z-10 min-h-screen flex items-center justify-center px-6 py-16">
+  <main className="relative z-10 min-h-screen flex items-center justify-center px-4 sm:px-6 py-10 sm:py-16">
     <div className="max-w-3xl w-full text-center">
-      <div className="small-caps text-xs text-ink-soft mb-6">
+      <div className="small-caps text-xs text-ink-soft mb-4 sm:mb-6">
         Vol. I · No. 1 · An editorial diversion
       </div>
-      <h1 className="serif text-6xl md:text-7xl font-extrabold tracking-tight mb-4">
+      <h1 className="serif text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight mb-3 sm:mb-4">
         Wiki<span className="italic text-primary">Race</span>
       </h1>
-      <p className="serif italic text-xl text-muted-foreground mb-2">
+      <p className="serif italic text-base sm:text-xl text-muted-foreground mb-2">
         From one article to another, by hyperlink alone.
       </p>
-      <div className="hairline my-8 mx-auto w-24" />
+      <div className="hairline my-6 sm:my-8 mx-auto w-24" />
 
       {/* Mode */}
       <div className="grid sm:grid-cols-3 gap-3 mb-4 text-left">
@@ -775,5 +769,152 @@ const RailEnd = ({
     <div className="text-xs text-ink-soft line-clamp-1 mt-0.5">{subtitle}</div>
   </div>
 );
+
+const WonScreen = ({
+  clicks,
+  elapsed,
+  undos,
+  score,
+  path,
+  target,
+  mode,
+  onPlayAgain,
+  onChangeSettings,
+}: {
+  clicks: number;
+  elapsed: number;
+  undos: number;
+  score: number;
+  path: { title: string; html: string }[];
+  target: WikiSummary | null;
+  mode: GameMode;
+  onPlayAgain: () => void;
+  onChangeSettings: () => void;
+}) => {
+  const [copied, setCopied] = useState(false);
+
+  // Build a /?target=... share link if this run had a meaningful target.
+  const shareUrl = (() => {
+    if (!target?.title) return null;
+    const url = new URL(window.location.origin);
+    url.searchParams.set("target", target.title);
+    return url.toString();
+  })();
+
+  const shareLabel =
+    mode === "custom"
+      ? "Challenge a friend to this target"
+      : "Share this target with a friend";
+
+  const onShare = async () => {
+    if (!shareUrl) return;
+    const shareData = {
+      title: "WikiRace",
+      text: `Race me to “${target?.title}” on WikiRace!`,
+      url: shareUrl,
+    };
+    try {
+      // Use native share sheet on mobile if available.
+      if (
+        typeof navigator !== "undefined" &&
+        typeof navigator.share === "function" &&
+        // Avoid sharing only-text on desktop where it's flaky.
+        /Mobi|Android|iPhone|iPad/.test(navigator.userAgent)
+      ) {
+        await navigator.share(shareData);
+        return;
+      }
+    } catch {
+      /* fall through to clipboard */
+    }
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      toast.success("Link copied — share it with a friend!");
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      toast.error("Couldn't copy the link.");
+    }
+  };
+
+  return (
+    <main className="relative z-10 min-h-screen flex items-center justify-center px-4 sm:px-6 py-10 sm:py-16">
+      <div className="max-w-3xl w-full grid gap-4 sm:gap-6">
+        <div className="paper-card p-6 sm:p-10 text-center">
+          <Trophy className="w-10 h-10 mx-auto text-primary mb-4" />
+          <div className="small-caps text-xs text-ink-soft mb-2">Final dispatch</div>
+          <h2 className="serif text-3xl sm:text-4xl font-extrabold mb-6">You arrived.</h2>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-6 sm:mb-8">
+            <Stat label="Clicks" value={String(clicks)} />
+            <Stat label="Time" value={formatTime(elapsed)} />
+            <Stat label="Undos" value={String(undos)} />
+            <Stat label="Score" value={score.toLocaleString()} accent />
+          </div>
+
+          <div className="hairline mb-6" />
+          <div className="text-left">
+            <div className="small-caps text-xs text-ink-soft mb-2">Your path</div>
+            <ol className="serif text-sm space-y-1 max-h-[40vh] overflow-y-auto">
+              {path.map((p, i) => (
+                <li key={i} className="flex gap-2">
+                  <span className="mono text-xs text-ink-faint w-6 shrink-0">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span
+                    className={`break-words ${
+                      i === path.length - 1 ? "text-primary font-semibold" : ""
+                    }`}
+                  >
+                    {p.title}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          {shareUrl && (
+            <div className="paper-card p-3 sm:p-4 mt-6 sm:mt-8 text-left flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="small-caps text-[10px] text-ink-faint mb-0.5">
+                  {shareLabel}
+                </div>
+                <div className="mono text-xs text-ink-soft truncate">
+                  {shareUrl.replace(/^https?:\/\//, "")}
+                </div>
+              </div>
+              <Button
+                variant="secondary"
+                onClick={onShare}
+                className="w-full sm:w-auto shrink-0"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-4 h-4 mr-2" /> Copied
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="w-4 h-4 mr-2" /> Share link
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-6 sm:mt-8 justify-center">
+            <Button onClick={onPlayAgain} size="lg">
+              <RotateCcw className="w-4 h-4 mr-2" /> Race again
+            </Button>
+            <Button variant="outline" size="lg" onClick={onChangeSettings}>
+              Change settings
+            </Button>
+          </div>
+        </div>
+
+        <Leaderboard />
+      </div>
+    </main>
+  );
+};
 
 export default Index;
