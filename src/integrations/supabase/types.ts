@@ -14,13 +14,124 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      match_players: {
+        Row: {
+          clicks: number
+          current_title: string | null
+          display_name: string
+          finished_at: string | null
+          id: string
+          joined_at: string
+          match_id: string
+          path: Json
+          player_id: string
+          time_ms: number | null
+        }
+        Insert: {
+          clicks?: number
+          current_title?: string | null
+          display_name: string
+          finished_at?: string | null
+          id?: string
+          joined_at?: string
+          match_id: string
+          path?: Json
+          player_id: string
+          time_ms?: number | null
+        }
+        Update: {
+          clicks?: number
+          current_title?: string | null
+          display_name?: string
+          finished_at?: string | null
+          id?: string
+          joined_at?: string
+          match_id?: string
+          path?: Json
+          player_id?: string
+          time_ms?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_players_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      matches: {
+        Row: {
+          created_at: string
+          finished_at: string | null
+          id: string
+          start_title: string | null
+          started_at: string | null
+          status: string
+          target_title: string | null
+          winner_player_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          start_title?: string | null
+          started_at?: string | null
+          status?: string
+          target_title?: string | null
+          winner_player_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          start_title?: string | null
+          started_at?: string | null
+          status?: string
+          target_title?: string | null
+          winner_player_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      cancel_match: {
+        Args: { p_match_id: string; p_player_id: string }
+        Returns: undefined
+      }
+      finish_match: {
+        Args: {
+          p_clicks: number
+          p_match_id: string
+          p_path: Json
+          p_player_id: string
+          p_time_ms: number
+        }
+        Returns: undefined
+      }
+      join_quick_match: {
+        Args: {
+          p_display_name: string
+          p_player_id: string
+          p_start: string
+          p_target: string
+        }
+        Returns: string
+      }
+      report_progress: {
+        Args: {
+          p_clicks: number
+          p_current_title: string
+          p_match_id: string
+          p_path: Json
+          p_player_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
