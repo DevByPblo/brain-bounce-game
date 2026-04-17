@@ -121,22 +121,27 @@ export function runBot(args: {
     let current = args.start;
     const path: string[] = [args.start];
     let hops = 0;
-    console.log("[bot] tick start", { current, target: args.target });
+    console.log("[bot] tick start", { current, target: args.target, difficulty: args.difficulty });
+
+    const finish = async () => {
+      console.log("[bot] reached target in", hops, "hops");
+      const { error } = await supabase.rpc("finish_match", {
+        p_match_id: args.matchId,
+        p_player_id: args.botPlayerId,
+        p_clicks: hops,
+        p_time_ms: Date.now() - args.startedAt,
+        p_path: path,
+      });
+      if (error) console.error("[bot] finish_match error", error);
+    };
+
+    // Edge case: start IS target.
+    if (normaliseTitle(current) === normaliseTitle(args.target)) {
+      await finish();
+      return;
+    }
 
     while (!stopped && hops < args.difficulty.maxHops) {
-      // Reached target?
-      if (normaliseTitle(current) === normaliseTitle(args.target)) {
-        console.log("[bot] reached target");
-        await supabase.rpc("finish_match", {
-          p_match_id: args.matchId,
-          p_player_id: args.botPlayerId,
-          p_clicks: hops,
-          p_time_ms: Date.now() - args.startedAt,
-          p_path: path,
-        });
-        return;
-      }
-
       // Wait between hops.
       await new Promise((r) => setTimeout(r, args.difficulty.hopDelayMs));
       if (stopped) { console.log("[bot] stopped during wait"); return; }
@@ -147,8 +152,8 @@ export function runBot(args: {
         const links = extractLinks(art.html).filter(
           (l) => !path.some((p) => normaliseTitle(p) === normaliseTitle(l))
         );
-        console.log("[bot] fetched", current, "links:", links.length);
-        if (!links.length) { console.log("[bot] no links, giving up"); return; }
+        console.log("[bot] fetched", current, "→ links:", links.length);
+        if (!links.length) { console.warn("[bot] no links, giving up"); return; }
 
         // Direct hit?
         const direct = links.find(
@@ -167,7 +172,7 @@ export function runBot(args: {
           next = pool[Math.floor(Math.random() * pool.length)];
         }
       } catch (e) {
-        console.log("[bot] fetch error", e);
+        console.error("[bot] fetch error on", current, e);
         return;
       }
 
@@ -177,14 +182,23 @@ export function runBot(args: {
       current = next;
       console.log("[bot] hop", hops, "→", next);
 
-      void supabase.rpc("report_progress", {
+      // Report progress — await so we surface RPC errors.
+      const { error: progErr } = await supabase.rpc("report_progress", {
         p_match_id: args.matchId,
         p_player_id: args.botPlayerId,
         p_current_title: next,
         p_clicks: hops,
         p_path: path,
       });
+      if (progErr) console.error("[bot] report_progress error", progErr);
+
+      // Reached target? Finish immediately — don't wait another hopDelay.
+      if (normaliseTitle(current) === normaliseTitle(args.target)) {
+        await finish();
+        return;
+      }
     }
+    console.warn("[bot] gave up after", hops, "hops without reaching target");
   };
 
   void tick();
