@@ -472,24 +472,25 @@ const Multiplayer = () => {
   return (
     <main className="relative z-10 min-h-screen flex flex-col">
       <header className="border-b border-rule bg-card/60 backdrop-blur-sm">
-        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <Link to="/" className="serif text-2xl font-extrabold">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-3 flex items-center justify-between gap-3 sm:gap-6">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <Link to="/" className="serif text-lg sm:text-2xl font-extrabold whitespace-nowrap">
               Wiki<span className="italic text-primary">Race</span>
             </Link>
             <span className="small-caps text-[10px] text-ink-faint hidden md:inline">
               Live duel
             </span>
           </div>
-          <div className="flex items-center gap-5 ticker">
+          <div className="flex items-center gap-3 sm:gap-5 ticker">
             <Metric label="Time" value={formatTime(elapsed)} />
-            <Button variant="outline" size="sm" onClick={cancelSearch}>
-              Forfeit
+            <Button variant="outline" size="sm" onClick={cancelSearch} className="h-8 px-2 sm:px-3">
+              <span className="hidden sm:inline">Forfeit</span>
+              <span className="sm:hidden">Quit</span>
             </Button>
           </div>
         </div>
 
-        <div className="max-w-6xl mx-auto px-6 pb-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-3 grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
           <PlayerCard
             label="You"
             name={me?.display_name ?? name}
@@ -508,16 +509,19 @@ const Multiplayer = () => {
           />
         </div>
 
-        <div className="max-w-6xl mx-auto px-6 pb-4">
-          <div className="paper-card flex items-stretch overflow-hidden">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-3 sm:pb-4">
+          <div className="paper-card flex flex-col sm:flex-row sm:items-stretch overflow-hidden">
             <RailEnd
               icon={<Flag className="w-3.5 h-3.5" />}
               label="From"
               title={startSummary?.title ?? match?.start_title ?? ""}
               subtitle={startSummary?.extract ?? ""}
             />
-            <div className="flex items-center px-4 text-ink-faint">
+            <div className="hidden sm:flex items-center px-4 text-ink-faint">
               <ArrowRight className="w-4 h-4" />
+            </div>
+            <div className="sm:hidden border-t border-rule flex items-center justify-center py-1 text-ink-faint">
+              <ArrowRight className="w-4 h-4 rotate-90" />
             </div>
             <RailEnd
               icon={<Target className="w-3.5 h-3.5" />}
@@ -530,11 +534,11 @@ const Multiplayer = () => {
         </div>
       </header>
 
-      <div className="flex-1 max-w-6xl w-full mx-auto px-6 py-6 min-h-0">
+      <div className="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 min-h-0">
         <article className="paper-card overflow-hidden min-h-[60vh] flex flex-col">
-          <div className="px-8 pt-6 pb-3 border-b border-rule flex items-baseline justify-between gap-3">
-            <h1 className="serif text-3xl font-extrabold truncate">{currentTitle}</h1>
-            <span className="mono text-xs text-ink-faint">hop {path.length - 1}</span>
+          <div className="px-4 sm:px-8 pt-4 sm:pt-6 pb-3 border-b border-rule flex items-baseline justify-between gap-3">
+            <h1 className="serif text-xl sm:text-3xl font-extrabold truncate">{currentTitle}</h1>
+            <span className="mono text-xs text-ink-faint whitespace-nowrap">hop {path.length - 1}</span>
           </div>
           <div className="flex-1 min-h-0">
             <WikiArticle
@@ -569,24 +573,24 @@ const Lobby = ({
 }) => {
   const [code, setCode] = useState("");
   return (
-    <main className="relative z-10 min-h-screen flex items-center justify-center px-6 py-16">
+    <main className="relative z-10 min-h-screen flex items-center justify-center px-4 sm:px-6 py-10 sm:py-16">
       <div className="max-w-xl w-full text-center">
         <Link
           to="/"
-          className="inline-flex items-center gap-1.5 small-caps text-xs text-ink-soft hover:text-primary mb-8"
+          className="inline-flex items-center gap-1.5 small-caps text-xs text-ink-soft hover:text-primary mb-6 sm:mb-8"
         >
           <ArrowLeft className="w-3 h-3" /> Back to single player
         </Link>
-        <div className="small-caps text-xs text-ink-soft mb-6">
+        <div className="small-caps text-xs text-ink-soft mb-4 sm:mb-6">
           Vol. I · No. 2 · A live editorial duel
         </div>
-        <h1 className="serif text-5xl md:text-6xl font-extrabold tracking-tight mb-3">
+        <h1 className="serif text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight mb-3">
           Race a <span className="italic text-primary">stranger</span>.
         </h1>
-        <p className="serif italic text-lg text-muted-foreground mb-8">
+        <p className="serif italic text-base sm:text-lg text-muted-foreground mb-6 sm:mb-8">
           Two readers. One target. First to arrive wins.
         </p>
-        <div className="hairline my-6 mx-auto w-24" />
+        <div className="hairline my-4 sm:my-6 mx-auto w-24" />
 
         <div className="paper-card p-6 text-left mb-6">
           <label className="small-caps text-[10px] text-ink-faint mb-2 block">
