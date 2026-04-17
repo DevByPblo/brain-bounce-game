@@ -434,6 +434,8 @@ const IdleScreen = ({
   setMode,
   difficulty,
   setDifficulty,
+  category,
+  setCategory,
   customTarget,
   setCustomTarget,
   onStart,
@@ -444,6 +446,8 @@ const IdleScreen = ({
   setMode: (m: GameMode) => void;
   difficulty: Difficulty;
   setDifficulty: (d: Difficulty) => void;
+  category: string;
+  setCategory: (c: string) => void;
   customTarget: string;
   setCustomTarget: (s: string) => void;
   onStart: () => void;
