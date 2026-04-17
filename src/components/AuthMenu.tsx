@@ -79,6 +79,7 @@ export const AuthMenu = () => {
 
   if (pathname === "/auth") return null;
   if (loading) return null;
+  if (raceActive) return null;
 
   const isAnon = !user || user.is_anonymous === true;
 
