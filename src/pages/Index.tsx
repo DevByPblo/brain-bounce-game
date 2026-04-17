@@ -43,6 +43,7 @@ import {
   Share2,
   Check,
   Lightbulb,
+} from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   AlertDialog,
