@@ -87,6 +87,7 @@ const Multiplayer = () => {
   const [mode, setMode] = useState<Mode>("quick");
   const [name, setName] = useState<string>(() => getPlayerName());
   const [category, setCategory] = useState<string>("");
+  const [disableHints, setDisableHints] = useState<boolean>(false);
   const playerId = useMemo(() => getPlayerId(), []);
   const [error, setError] = useState<string | null>(null);
 
