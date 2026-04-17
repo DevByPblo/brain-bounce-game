@@ -129,10 +129,12 @@ const Index = () => {
         }
       } else {
         s = await getRandomTitle();
-        t = await getTitleForDifficulty(difficulty);
+        const pickTarget = () =>
+          category ? getTitleForCategory(category) : getTitleForDifficulty(difficulty);
+        t = await pickTarget();
         let guard = 0;
         while (normaliseTitle(s) === normaliseTitle(t) && guard++ < 4) {
-          t = await getTitleForDifficulty(difficulty);
+          t = await pickTarget();
         }
       }
       const [sSum, tSum, art] = await Promise.all([
