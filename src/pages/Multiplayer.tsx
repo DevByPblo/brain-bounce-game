@@ -464,6 +464,8 @@ const Multiplayer = () => {
         setName={setName}
         category={category}
         setCategory={setCategory}
+        disableHints={disableHints}
+        setDisableHints={setDisableHints}
         onFind={findMatch}
         onCreateRoom={createRoom}
         onJoinRoom={joinRoom}
