@@ -640,7 +640,7 @@ const Lobby = ({
 
         <div className="paper-card p-6 text-left mb-6">
           <label className="small-caps text-[10px] text-ink-faint mb-2 block">
-            Your byline
+            Display name
           </label>
           <Input
             value={name}
