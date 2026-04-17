@@ -67,7 +67,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { setRaceActive } from "@/hooks/use-race-active";
-import { HintCard, HINT_COSTS } from "@/components/HintCard";
+import { HintCard } from "@/components/HintCard";
 
 type Phase = "lobby" | "searching" | "room" | "briefing" | "racing" | "finished";
 type Mode = "quick" | "private";
