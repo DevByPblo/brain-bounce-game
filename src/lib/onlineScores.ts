@@ -33,7 +33,7 @@ export async function submitScore(args: {
       score: args.score,
       clicks: args.clicks,
       time_ms: args.timeMs,
-      details: args.details ?? {},
+      details: (args.details ?? {}) as never,
     },
   ]);
   if (error) return { ok: false, error: error.message };
