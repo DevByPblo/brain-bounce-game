@@ -184,16 +184,23 @@ const Multiplayer = () => {
   }, [articleHtml, startSummary, targetSummary]);
 
   // ─── Drive the bot when one is in the match ───
+  // IMPORTANT: depend on stable identifiers only. Depending on the whole
+  // `players` array causes this effect to re-run every time the bot reports
+  // progress, restarting the bot in an infinite loop and stalling it on the
+  // first article.
+  const botPlayerId = useMemo(
+    () => players.find((p) => p.is_bot)?.player_id ?? null,
+    [players]
+  );
   useEffect(() => {
-    if (phase !== "racing" || !match || !matchId) return;
-    const bot = players.find((p) => p.is_bot);
-    if (!bot || botRunnerRef.current) return;
+    if (phase !== "racing" || !match || !matchId || !botPlayerId) return;
+    if (botRunnerRef.current) return;
     void (async () => {
       const best = await fetchPersonalBest(name);
       const difficulty = difficultyFromHistory(best);
       botRunnerRef.current = runBot({
         matchId,
-        botPlayerId: bot.player_id,
+        botPlayerId,
         start: match.start_title!,
         target: match.target_title!,
         difficulty,
@@ -204,7 +211,7 @@ const Multiplayer = () => {
       botRunnerRef.current?.stop();
       botRunnerRef.current = null;
     };
-  }, [phase, match, matchId, players, name]);
+  }, [phase, matchId, botPlayerId, match, name]);
 
   // Stop bot when match finishes/leaves.
   useEffect(() => {
