@@ -52,6 +52,25 @@ const Auth = () => {
     }
   };
 
+  const handleGoogle = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
+      });
+      if (result.error) throw result.error;
+      // If redirected, browser navigates away. If not, session is set.
+      if (!result.redirected) {
+        toast.success("Signed in with Google.");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Google sign-in failed";
+      setError(msg);
+      setBusy(false);
+    }
+  };
+
   return (
     <main className="relative z-10 min-h-screen flex items-center justify-center px-6 py-16">
       <div className="max-w-md w-full">
