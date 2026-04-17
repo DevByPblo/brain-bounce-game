@@ -654,6 +654,40 @@ const Lobby = ({
           </p>
         </div>
 
+        <div className="paper-card p-5 text-left mb-6">
+          <label
+            htmlFor="mp-category-select"
+            className="small-caps text-[10px] text-ink-faint mb-2 flex items-center justify-between"
+          >
+            <span>Target category (optional)</span>
+            {category && (
+              <button
+                type="button"
+                onClick={() => setCategory("")}
+                className="text-[10px] text-primary hover:underline normal-case"
+              >
+                Clear
+              </button>
+            )}
+          </label>
+          <select
+            id="mp-category-select"
+            className="select-category w-full h-10 rounded-md border border-input bg-background px-3 serif text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            <option value="">Any Category</option>
+            {CATEGORIES.map((c) => (
+              <option key={c.label} value={c.label}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-[11px] text-ink-faint mt-2">
+            When set, both racers head toward a target inside this category.
+          </p>
+        </div>
+
         {error && <p className="text-destructive text-sm mb-4">{error}</p>}
 
         <div className="grid sm:grid-cols-2 gap-3 mb-6">
