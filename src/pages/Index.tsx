@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { WikiArticle } from "@/components/WikiArticle";
 import {
   getArticleHtml,
@@ -8,6 +9,7 @@ import {
   getSummary,
   getTitleForDifficulty,
   normaliseTitle,
+  resolveTitleFromQuery,
   type WikiSummary,
 } from "@/lib/wiki";
 import {
@@ -17,6 +19,9 @@ import {
   type GameMode,
   type LeaderboardEntry,
 } from "@/lib/leaderboard";
+import { ensureSession } from "@/lib/guestAuth";
+import { submitScore } from "@/lib/onlineScores";
+import { toast } from "sonner";
 import {
   ArrowRight,
   RotateCcw,
@@ -31,6 +36,7 @@ import {
   Clock,
   MousePointerClick,
   Swords,
+  Pencil,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
