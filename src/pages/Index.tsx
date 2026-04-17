@@ -3,14 +3,38 @@ import { Button } from "@/components/ui/button";
 import { WikiArticle } from "@/components/WikiArticle";
 import {
   getArticleHtml,
+  getDailyPair,
   getRandomTitle,
   getSummary,
+  getTitleForDifficulty,
   normaliseTitle,
   type WikiSummary,
 } from "@/lib/wiki";
-import { ArrowRight, RotateCcw, Trophy, Loader2, Target, Flag } from "lucide-react";
+import {
+  addEntry,
+  getLeaderboardView,
+  type Difficulty,
+  type GameMode,
+  type LeaderboardEntry,
+} from "@/lib/leaderboard";
+import {
+  ArrowRight,
+  RotateCcw,
+  Trophy,
+  Loader2,
+  Target,
+  Flag,
+  Undo2,
+  Calendar,
+  Shuffle,
+  Medal,
+  Clock,
+  MousePointerClick,
+} from "lucide-react";
 
 type Phase = "idle" | "loading" | "playing" | "won";
+
+const UNDO_PENALTY = 200; // score points per undo step
 
 const formatTime = (ms: number) => {
   const s = Math.floor(ms / 1000);
@@ -19,22 +43,36 @@ const formatTime = (ms: number) => {
   return `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
 };
 
-const computeScore = (clicks: number, ms: number) => {
-  // Lower clicks + faster = higher score. Base 10000.
+const computeScore = (
+  clicks: number,
+  ms: number,
+  undos: number,
+  difficulty: Difficulty
+) => {
   const base = 10000;
   const clickPenalty = clicks * 350;
   const timePenalty = Math.floor(ms / 1000) * 8;
-  return Math.max(50, base - clickPenalty - timePenalty);
+  const undoPenalty = undos * UNDO_PENALTY;
+  const diffMultiplier =
+    difficulty === "hard" ? 1.5 : difficulty === "easy" ? 0.85 : 1;
+  return Math.max(
+    50,
+    Math.round((base - clickPenalty - timePenalty - undoPenalty) * diffMultiplier)
+  );
 };
 
 const Index = () => {
   const [phase, setPhase] = useState<Phase>("idle");
+  const [mode, setMode] = useState<GameMode>("random");
+  const [difficulty, setDifficulty] = useState<Difficulty>("normal");
   const [start, setStart] = useState<WikiSummary | null>(null);
   const [target, setTarget] = useState<WikiSummary | null>(null);
   const [currentTitle, setCurrentTitle] = useState<string>("");
   const [articleHtml, setArticleHtml] = useState<string>("");
-  const [path, setPath] = useState<string[]>([]);
+  // Path entries hold the title AND the html so we can jump back without refetching.
+  const [path, setPath] = useState<{ title: string; html: string }[]>([]);
   const [clicks, setClicks] = useState(0);
+  const [undos, setUndos] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const startRef = useRef<number>(0);
@@ -47,8 +85,8 @@ const Index = () => {
   }, [phase]);
 
   const score = useMemo(
-    () => computeScore(clicks, elapsed),
-    [clicks, elapsed]
+    () => computeScore(clicks, elapsed, undos, difficulty),
+    [clicks, elapsed, undos, difficulty]
   );
 
   const newGame = useCallback(async () => {
@@ -56,15 +94,23 @@ const Index = () => {
     setError(null);
     setPath([]);
     setClicks(0);
+    setUndos(0);
     setElapsed(0);
     setArticleHtml("");
     try {
-      // Pick two distinct random titles
-      let s = await getRandomTitle();
-      let t = await getRandomTitle();
-      let guard = 0;
-      while (normaliseTitle(s) === normaliseTitle(t) && guard++ < 4) {
-        t = await getRandomTitle();
+      let s: string;
+      let t: string;
+      if (mode === "daily") {
+        const pair = await getDailyPair();
+        s = pair.start;
+        t = pair.target;
+      } else {
+        s = await getRandomTitle();
+        t = await getTitleForDifficulty(difficulty);
+        let guard = 0;
+        while (normaliseTitle(s) === normaliseTitle(t) && guard++ < 4) {
+          t = await getTitleForDifficulty(difficulty);
+        }
       }
       const [sSum, tSum, art] = await Promise.all([
         getSummary(s),
@@ -75,7 +121,7 @@ const Index = () => {
       setTarget(tSum);
       setCurrentTitle(art.title);
       setArticleHtml(art.html);
-      setPath([art.title]);
+      setPath([{ title: art.title, html: art.html }]);
       startRef.current = Date.now();
       setPhase("playing");
     } catch (e) {
@@ -83,7 +129,38 @@ const Index = () => {
       setError("Couldn't reach Wikipedia. Try again.");
       setPhase("idle");
     }
-  }, []);
+  }, [mode, difficulty]);
+
+  const finishGame = useCallback(
+    (
+      finalClicks: number,
+      finalElapsed: number,
+      finalUndos: number,
+      finalPath: { title: string; html: string }[]
+    ) => {
+      const finalScore = computeScore(
+        finalClicks,
+        finalElapsed,
+        finalUndos,
+        difficulty
+      );
+      if (start && target) {
+        addEntry({
+          start: start.title,
+          target: target.title,
+          clicks: finalClicks,
+          timeMs: finalElapsed,
+          score: finalScore,
+          mode,
+          difficulty,
+        });
+      }
+      setElapsed(finalElapsed);
+      setPath(finalPath);
+      setPhase("won");
+    },
+    [difficulty, mode, start, target]
+  );
 
   const navigate = useCallback(
     async (title: string) => {
@@ -91,114 +168,96 @@ const Index = () => {
       setClicks((c) => c + 1);
       try {
         const art = await getArticleHtml(title);
+        const newPath = [...path, { title: art.title, html: art.html }];
         setCurrentTitle(art.title);
         setArticleHtml(art.html);
-        setPath((p) => [...p, art.title]);
+        setPath(newPath);
         if (normaliseTitle(art.title) === normaliseTitle(target.title)) {
-          setElapsed(Date.now() - startRef.current);
-          setPhase("won");
+          finishGame(clicks + 1, Date.now() - startRef.current, undos, newPath);
         }
       } catch (e) {
         console.error(e);
       }
     },
-    [target]
+    [target, path, clicks, undos, finishGame]
+  );
+
+  /** Jump back to the article at index `i` in the path. Costs an undo penalty per step removed. */
+  const undoTo = useCallback(
+    (i: number) => {
+      if (i < 0 || i >= path.length - 1) return;
+      const stepsRemoved = path.length - 1 - i;
+      const trimmed = path.slice(0, i + 1);
+      const last = trimmed[trimmed.length - 1];
+      setPath(trimmed);
+      setCurrentTitle(last.title);
+      setArticleHtml(last.html);
+      setUndos((u) => u + stepsRemoved);
+    },
+    [path]
   );
 
   // ───────────────────────────── UI ─────────────────────────────
 
   if (phase === "idle" || phase === "loading") {
-    return (
-      <main className="relative z-10 min-h-screen flex items-center justify-center px-6 py-16">
-        <div className="max-w-2xl w-full text-center">
-          <div className="small-caps text-xs text-ink-soft mb-6">
-            Vol. I · No. 1 · An editorial diversion
-          </div>
-          <h1 className="serif text-6xl md:text-7xl font-extrabold tracking-tight mb-4">
-            Wiki<span className="italic text-primary">Race</span>
-          </h1>
-          <p className="serif italic text-xl text-muted-foreground mb-2">
-            From one article to another, by hyperlink alone.
-          </p>
-          <div className="hairline my-8 mx-auto w-24" />
-          <p className="text-sm text-ink-soft leading-relaxed max-w-md mx-auto mb-10">
-            You'll be dropped into a random Wikipedia article and given a target.
-            Click links inside the article to travel between pages. Fewer clicks
-            and faster times mean a higher score.
-          </p>
-
-          {error && (
-            <p className="text-destructive text-sm mb-4">{error}</p>
-          )}
-
-          <Button
-            size="lg"
-            onClick={newGame}
-            disabled={phase === "loading"}
-            className="px-10 py-6 text-base"
-          >
-            {phase === "loading" ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Setting the press…
-              </>
-            ) : (
-              <>Begin the race <ArrowRight className="w-4 h-4 ml-2" /></>
-            )}
-          </Button>
-
-          <div className="mt-16 grid grid-cols-3 gap-6 text-left">
-            {[
-              ["01", "Random start", "A surprise article from the archive."],
-              ["02", "Random target", "A second article — your destination."],
-              ["03", "Hyperlinks only", "Fewer hops, faster time, higher score."],
-            ].map(([n, t, d]) => (
-              <div key={n} className="paper-card p-4">
-                <div className="mono text-xs text-primary mb-2">№ {n}</div>
-                <div className="serif font-semibold mb-1">{t}</div>
-                <div className="text-xs text-ink-soft leading-relaxed">{d}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </main>
-    );
+    return <IdleScreen
+      mode={mode}
+      setMode={setMode}
+      difficulty={difficulty}
+      setDifficulty={setDifficulty}
+      onStart={newGame}
+      loading={phase === "loading"}
+      error={error}
+    />;
   }
 
   if (phase === "won") {
     return (
       <main className="relative z-10 min-h-screen flex items-center justify-center px-6 py-16">
-        <div className="paper-card max-w-xl w-full p-10 text-center">
-          <Trophy className="w-10 h-10 mx-auto text-primary mb-4" />
-          <div className="small-caps text-xs text-ink-soft mb-2">Final dispatch</div>
-          <h2 className="serif text-4xl font-extrabold mb-6">You arrived.</h2>
+        <div className="max-w-3xl w-full grid gap-6">
+          <div className="paper-card p-10 text-center">
+            <Trophy className="w-10 h-10 mx-auto text-primary mb-4" />
+            <div className="small-caps text-xs text-ink-soft mb-2">Final dispatch</div>
+            <h2 className="serif text-4xl font-extrabold mb-6">You arrived.</h2>
 
-          <div className="grid grid-cols-3 gap-4 mb-8">
-            <Stat label="Clicks" value={String(clicks)} />
-            <Stat label="Time" value={formatTime(elapsed)} />
-            <Stat label="Score" value={score.toLocaleString()} accent />
+            <div className="grid grid-cols-4 gap-3 mb-8">
+              <Stat label="Clicks" value={String(clicks)} />
+              <Stat label="Time" value={formatTime(elapsed)} />
+              <Stat label="Undos" value={String(undos)} />
+              <Stat label="Score" value={score.toLocaleString()} accent />
+            </div>
+
+            <div className="hairline mb-6" />
+            <div className="text-left">
+              <div className="small-caps text-xs text-ink-soft mb-2">Your path</div>
+              <ol className="serif text-sm space-y-1">
+                {path.map((p, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="mono text-xs text-ink-faint w-6">
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <span className={i === path.length - 1 ? "text-primary font-semibold" : ""}>
+                      {p.title}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            <Button onClick={newGame} size="lg" className="mt-8">
+              <RotateCcw className="w-4 h-4 mr-2" /> Race again
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => setPhase("idle")}
+              className="mt-8 ml-3"
+            >
+              Change settings
+            </Button>
           </div>
 
-          <div className="hairline mb-6" />
-          <div className="text-left">
-            <div className="small-caps text-xs text-ink-soft mb-2">Your path</div>
-            <ol className="serif text-sm space-y-1">
-              {path.map((p, i) => (
-                <li key={i} className="flex gap-2">
-                  <span className="mono text-xs text-ink-faint w-6">
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  <span className={i === path.length - 1 ? "text-primary font-semibold" : ""}>
-                    {p}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </div>
-
-          <Button onClick={newGame} size="lg" className="mt-8">
-            <RotateCcw className="w-4 h-4 mr-2" /> Race again
-          </Button>
+          <Leaderboard />
         </div>
       </main>
     );
@@ -214,15 +273,18 @@ const Index = () => {
             <div className="serif text-2xl font-extrabold">
               Wiki<span className="italic text-primary">Race</span>
             </div>
-            <div className="hidden md:block small-caps text-[10px] text-ink-faint">
-              In progress
+            <div className="hidden md:flex items-center gap-2">
+              <span className="small-caps text-[10px] text-ink-faint">
+                {mode === "daily" ? "Daily challenge" : `${difficulty} mode`}
+              </span>
             </div>
           </div>
           <div className="flex items-center gap-6 ticker">
             <Metric label="Clicks" value={String(clicks)} />
             <Metric label="Time" value={formatTime(elapsed)} />
+            {undos > 0 && <Metric label="Undos" value={String(undos)} />}
             <Metric label="Score" value={score.toLocaleString()} accent />
-            <Button variant="outline" size="sm" onClick={newGame}>
+            <Button variant="outline" size="sm" onClick={() => setPhase("idle")}>
               <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> New
             </Button>
           </div>
@@ -252,13 +314,25 @@ const Index = () => {
       </header>
 
       {/* Article + path */}
-      <div className="flex-1 max-w-6xl w-full mx-auto grid grid-cols-1 md:grid-cols-[1fr_240px] gap-6 px-6 py-6 min-h-0">
+      <div className="flex-1 max-w-6xl w-full mx-auto grid grid-cols-1 md:grid-cols-[1fr_260px] gap-6 px-6 py-6 min-h-0">
         <article className="paper-card overflow-hidden min-h-[60vh] flex flex-col">
-          <div className="px-8 pt-6 pb-3 border-b border-rule flex items-baseline justify-between">
-            <h1 className="serif text-3xl font-extrabold">{currentTitle}</h1>
-            <span className="mono text-xs text-ink-faint">
-              hop {path.length - 1}
-            </span>
+          <div className="px-8 pt-6 pb-3 border-b border-rule flex items-baseline justify-between gap-3">
+            <h1 className="serif text-3xl font-extrabold truncate">{currentTitle}</h1>
+            <div className="flex items-center gap-3 shrink-0">
+              {path.length > 1 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => undoTo(path.length - 2)}
+                  title={`Go back one article (-${UNDO_PENALTY} pts)`}
+                >
+                  <Undo2 className="w-3.5 h-3.5 mr-1.5" /> Undo
+                </Button>
+              )}
+              <span className="mono text-xs text-ink-faint">
+                hop {path.length - 1}
+              </span>
+            </div>
           </div>
           <div className="flex-1 min-h-0">
             <WikiArticle
@@ -272,33 +346,287 @@ const Index = () => {
 
         <aside className="paper-card p-4 h-fit md:sticky md:top-6">
           <div className="small-caps text-[10px] text-ink-faint mb-3">Path</div>
-          <ol className="serif text-sm space-y-1.5 max-h-[60vh] overflow-y-auto">
-            {path.map((p, i) => (
-              <li key={i} className="flex gap-2">
-                <span className="mono text-[10px] text-ink-faint w-5 pt-0.5">
-                  {String(i + 1).padStart(2, "0")}
-                </span>
-                <span
-                  className={
-                    i === path.length - 1
-                      ? "text-primary font-semibold"
-                      : "text-ink-soft"
-                  }
-                >
-                  {p}
-                </span>
-              </li>
-            ))}
+          <ol className="serif text-sm space-y-1.5 max-h-[55vh] overflow-y-auto">
+            {path.map((p, i) => {
+              const isCurrent = i === path.length - 1;
+              const canJump = !isCurrent;
+              return (
+                <li key={i} className="flex gap-2 items-start">
+                  <span className="mono text-[10px] text-ink-faint w-5 pt-1">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  {canJump ? (
+                    <button
+                      onClick={() => undoTo(i)}
+                      className="text-left text-ink-soft hover:text-primary hover:underline transition-colors"
+                      title={`Jump back here (-${
+                        (path.length - 1 - i) * UNDO_PENALTY
+                      } pts)`}
+                    >
+                      {p.title}
+                    </button>
+                  ) : (
+                    <span className="text-primary font-semibold">{p.title}</span>
+                  )}
+                </li>
+              );
+            })}
           </ol>
           <div className="hairline my-4" />
           <p className="text-[11px] text-ink-faint leading-relaxed">
-            Highlighted links lead directly to your target.
+            Highlighted links lead directly to your target. Click any past
+            article to jump back ( −{UNDO_PENALTY} pts per step ).
           </p>
         </aside>
       </div>
     </main>
   );
 };
+
+// ───────────────────────────── Sub-components ─────────────────────────────
+
+const IdleScreen = ({
+  mode,
+  setMode,
+  difficulty,
+  setDifficulty,
+  onStart,
+  loading,
+  error,
+}: {
+  mode: GameMode;
+  setMode: (m: GameMode) => void;
+  difficulty: Difficulty;
+  setDifficulty: (d: Difficulty) => void;
+  onStart: () => void;
+  loading: boolean;
+  error: string | null;
+}) => (
+  <main className="relative z-10 min-h-screen flex items-center justify-center px-6 py-16">
+    <div className="max-w-3xl w-full text-center">
+      <div className="small-caps text-xs text-ink-soft mb-6">
+        Vol. I · No. 1 · An editorial diversion
+      </div>
+      <h1 className="serif text-6xl md:text-7xl font-extrabold tracking-tight mb-4">
+        Wiki<span className="italic text-primary">Race</span>
+      </h1>
+      <p className="serif italic text-xl text-muted-foreground mb-2">
+        From one article to another, by hyperlink alone.
+      </p>
+      <div className="hairline my-8 mx-auto w-24" />
+
+      {/* Mode */}
+      <div className="grid sm:grid-cols-2 gap-3 mb-4 text-left">
+        <ModeCard
+          active={mode === "random"}
+          onClick={() => setMode("random")}
+          icon={<Shuffle className="w-4 h-4" />}
+          title="Random race"
+          desc="Two surprise articles, fresh every game."
+        />
+        <ModeCard
+          active={mode === "daily"}
+          onClick={() => setMode("daily")}
+          icon={<Calendar className="w-4 h-4" />}
+          title="Daily challenge"
+          desc="Same start & target for everyone today."
+        />
+      </div>
+
+      {/* Difficulty (only meaningful for random) */}
+      <div
+        className={`grid grid-cols-3 gap-3 mb-8 text-left transition-opacity ${
+          mode === "daily" ? "opacity-40 pointer-events-none" : ""
+        }`}
+      >
+        {(["easy", "normal", "hard"] as Difficulty[]).map((d) => (
+          <DiffCard
+            key={d}
+            active={difficulty === d}
+            onClick={() => setDifficulty(d)}
+            label={d}
+            desc={
+              d === "easy"
+                ? "Popular target. Bonus ×0.85."
+                : d === "normal"
+                ? "Random target. Bonus ×1."
+                : "Obscure target. Bonus ×1.5."
+            }
+          />
+        ))}
+      </div>
+
+      {error && <p className="text-destructive text-sm mb-4">{error}</p>}
+
+      <Button
+        size="lg"
+        onClick={onStart}
+        disabled={loading}
+        className="px-10 py-6 text-base"
+      >
+        {loading ? (
+          <>
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            Setting the press…
+          </>
+        ) : (
+          <>Begin the race <ArrowRight className="w-4 h-4 ml-2" /></>
+        )}
+      </Button>
+
+      <div className="mt-12">
+        <Leaderboard />
+      </div>
+    </div>
+  </main>
+);
+
+const ModeCard = ({
+  active,
+  onClick,
+  icon,
+  title,
+  desc,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+}) => (
+  <button
+    onClick={onClick}
+    className={`paper-card p-4 text-left transition-all hover:translate-y-[-1px] ${
+      active ? "ring-2 ring-primary" : ""
+    }`}
+  >
+    <div className="flex items-center gap-2 mb-2">
+      <span className={active ? "text-primary" : "text-ink-soft"}>{icon}</span>
+      <span className="serif font-semibold">{title}</span>
+    </div>
+    <div className="text-xs text-ink-soft leading-relaxed">{desc}</div>
+  </button>
+);
+
+const DiffCard = ({
+  active,
+  onClick,
+  label,
+  desc,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  desc: string;
+}) => (
+  <button
+    onClick={onClick}
+    className={`paper-card p-3 text-left transition-all hover:translate-y-[-1px] ${
+      active ? "ring-2 ring-primary" : ""
+    }`}
+  >
+    <div className="small-caps text-[10px] text-ink-faint mb-1">Difficulty</div>
+    <div
+      className={`serif font-semibold capitalize mb-1 ${
+        active ? "text-primary" : ""
+      }`}
+    >
+      {label}
+    </div>
+    <div className="text-[11px] text-ink-soft leading-relaxed">{desc}</div>
+  </button>
+);
+
+const Leaderboard = () => {
+  const view = useMemo(() => getLeaderboardView(5), []);
+  const empty =
+    view.topScores.length === 0 &&
+    view.fewestClicks.length === 0 &&
+    view.fastestTimes.length === 0;
+
+  if (empty) {
+    return (
+      <div className="paper-card p-6 text-center">
+        <div className="small-caps text-[10px] text-ink-faint mb-1">
+          Local leaderboard
+        </div>
+        <p className="text-sm text-ink-soft">
+          No races run yet. Finish one to set a record.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="paper-card p-5 text-left">
+      <div className="flex items-center gap-2 mb-4">
+        <Medal className="w-4 h-4 text-primary" />
+        <div className="small-caps text-xs text-ink-soft">Local leaderboard</div>
+      </div>
+      <div className="grid md:grid-cols-3 gap-5">
+        <BoardColumn
+          title="Top scores"
+          icon={<Trophy className="w-3.5 h-3.5" />}
+          entries={view.topScores}
+          render={(e) => e.score.toLocaleString()}
+        />
+        <BoardColumn
+          title="Fewest clicks"
+          icon={<MousePointerClick className="w-3.5 h-3.5" />}
+          entries={view.fewestClicks}
+          render={(e) => `${e.clicks} clicks`}
+        />
+        <BoardColumn
+          title="Fastest times"
+          icon={<Clock className="w-3.5 h-3.5" />}
+          entries={view.fastestTimes}
+          render={(e) => formatTime(e.timeMs)}
+        />
+      </div>
+    </div>
+  );
+};
+
+const BoardColumn = ({
+  title,
+  icon,
+  entries,
+  render,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  entries: LeaderboardEntry[];
+  render: (e: LeaderboardEntry) => string;
+}) => (
+  <div>
+    <div className="flex items-center gap-1.5 mb-2 text-ink-soft">
+      {icon}
+      <span className="small-caps text-[10px]">{title}</span>
+    </div>
+    {entries.length === 0 ? (
+      <div className="text-xs text-ink-faint">—</div>
+    ) : (
+      <ol className="space-y-1.5">
+        {entries.map((e, i) => (
+          <li key={e.id} className="text-xs flex items-baseline gap-2">
+            <span className="mono text-[10px] text-ink-faint w-4">
+              {i + 1}.
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="serif truncate">
+                {e.start} → <span className="text-primary">{e.target}</span>
+              </div>
+              <div className="text-[10px] text-ink-faint capitalize">
+                {e.mode === "daily" ? "daily" : e.difficulty}
+              </div>
+            </div>
+            <span className="mono ticker font-semibold">{render(e)}</span>
+          </li>
+        ))}
+      </ol>
+    )}
+  </div>
+);
 
 const Stat = ({ label, value, accent }: { label: string; value: string; accent?: boolean }) => (
   <div className="paper-card p-4">
