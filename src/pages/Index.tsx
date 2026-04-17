@@ -319,7 +319,7 @@ const Index = () => {
             </div>
             <div className="hidden md:flex items-center gap-2">
               <span className="small-caps text-[10px] text-ink-faint">
-                {mode === "daily" ? "Daily challenge" : `${difficulty} mode`}
+                {mode === "daily" ? "Daily challenge" : mode === "custom" ? "Custom target" : `${difficulty} mode`}
               </span>
             </div>
           </div>
