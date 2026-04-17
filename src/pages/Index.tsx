@@ -74,7 +74,8 @@ const computeScore = (
   clicks: number,
   ms: number,
   undos: number,
-  difficulty: Difficulty
+  difficulty: Difficulty,
+  hintCost = 0
 ) => {
   const base = 10000;
   const clickPenalty = clicks * 350;
@@ -84,7 +85,7 @@ const computeScore = (
     difficulty === "hard" ? 1.5 : difficulty === "easy" ? 0.85 : 1;
   return Math.max(
     50,
-    Math.round((base - clickPenalty - timePenalty - undoPenalty) * diffMultiplier)
+    Math.round((base - clickPenalty - timePenalty - undoPenalty) * diffMultiplier) - hintCost
   );
 };
 
