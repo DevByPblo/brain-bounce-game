@@ -155,7 +155,7 @@ const Index = () => {
       setError(msg);
       setPhase("idle");
     }
-  }, [mode, difficulty, customTarget]);
+  }, [mode, difficulty, category, customTarget]);
 
   // ─── Auto-start from a shared URL: /?target=Octopus ───
   useEffect(() => {
