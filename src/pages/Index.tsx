@@ -485,6 +485,18 @@ const Index = () => {
           </p>
         </aside>
       </div>
+
+      <HintCard
+        open={hintOpen}
+        onOpenChange={setHintOpen}
+        target={target}
+        hintsUsed={hintsUsed}
+        onPurchase={() => {
+          const cost = HINT_COSTS[hintsUsed];
+          setHintsUsed((n) => n + 1);
+          toast.info(`Hint revealed (−${cost.toLocaleString()} pts)`);
+        }}
+      />
     </main>
   );
 };
