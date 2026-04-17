@@ -537,7 +537,7 @@ const IdleScreen = ({
       <Button
         size="lg"
         onClick={onStart}
-        disabled={loading}
+        disabled={loading || (mode === "custom" && !customTarget.trim())}
         className="px-10 py-6 text-base"
       >
         {loading ? (
