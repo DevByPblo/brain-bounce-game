@@ -28,7 +28,7 @@ import {
   normaliseTitle,
   type WikiSummary,
 } from "@/lib/wiki";
-import { CATEGORIES, getTitleForCategory } from "@/lib/categories";
+import { CATEGORIES, OTHER_CATEGORIES, POPULAR_CATEGORIES, getTitleForCategory } from "@/lib/categories";
 import { getPlayerId, getPlayerName, setPlayerName } from "@/lib/player";
 import {
   addBotToMatch,
