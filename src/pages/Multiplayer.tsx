@@ -801,6 +801,31 @@ const Lobby = ({
           </p>
         </div>
 
+        <div className="paper-card p-5 text-left mb-6">
+          <label className="small-caps text-[10px] text-ink-faint mb-2 block">
+            Target difficulty
+          </label>
+          <div className="grid grid-cols-3 gap-2">
+            {(["easy", "normal", "hard"] as const).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDifficulty(d)}
+                className={`serif text-sm py-2 rounded-md border transition-colors capitalize ${
+                  difficulty === d
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-input hover:bg-accent"
+                }`}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-ink-faint mt-2">
+            Easy = household names · Normal = mixed · Hard = obscure picks.
+          </p>
+        </div>
+
         <label className="paper-card p-4 mb-6 flex items-start gap-3 cursor-pointer text-left hover:bg-accent/20 transition-colors">
           <input
             type="checkbox"
