@@ -26,14 +26,16 @@ export async function submitScore(args: {
   const uid = userData.user?.id;
   if (!uid) return { ok: false, error: "Not signed in" };
 
-  const { error } = await supabase.from("scores").insert({
-    user_id: uid,
-    mode: args.mode,
-    score: args.score,
-    clicks: args.clicks,
-    time_ms: args.timeMs,
-    details: args.details ?? {},
-  });
+  const { error } = await supabase.from("scores").insert([
+    {
+      user_id: uid,
+      mode: args.mode,
+      score: args.score,
+      clicks: args.clicks,
+      time_ms: args.timeMs,
+      details: args.details ?? {},
+    },
+  ]);
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }
