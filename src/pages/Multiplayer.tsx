@@ -87,6 +87,8 @@ const Multiplayer = () => {
   const [mode, setMode] = useState<Mode>("quick");
   const [name, setName] = useState<string>(() => getPlayerName());
   const [category, setCategory] = useState<string>("");
+  const [difficulty, setDifficulty] = useState<"easy" | "normal" | "hard">("normal");
+  const [disableHints, setDisableHints] = useState<boolean>(false);
   const playerId = useMemo(() => getPlayerId(), []);
   const [error, setError] = useState<string | null>(null);
 
@@ -285,7 +287,7 @@ const Multiplayer = () => {
   const pickPair = useCallback(async () => {
     const s = await getRandomTitle();
     const pickTarget = () =>
-      category ? getTitleForCategory(category) : getRandomTitle();
+      category ? getTitleForCategory(category, difficulty) : getRandomTitle();
     let t = await pickTarget();
     let guard = 0;
     while (normaliseTitle(s) === normaliseTitle(t) && guard++ < 4) {
@@ -293,7 +295,7 @@ const Multiplayer = () => {
     }
     if (category) recordCategoryUse(category);
     return { start: s, target: t };
-  }, [category]);
+  }, [category, difficulty]);
 
   // ─── Find a quick match ───
   const findMatch = useCallback(async () => {
@@ -307,6 +309,7 @@ const Multiplayer = () => {
         displayName: name.trim() || "Anonymous",
         start,
         target,
+        hintsDisabled: disableHints,
       });
       setMatchId(id);
     } catch (e) {
@@ -314,7 +317,7 @@ const Multiplayer = () => {
       setError("Couldn't reach the matchmaker. Please try again.");
       setPhase("lobby");
     }
-  }, [name, playerId, pickPair]);
+  }, [name, playerId, pickPair, disableHints]);
 
   // ─── Create a private room ───
   const createRoom = useCallback(async () => {
@@ -328,6 +331,7 @@ const Multiplayer = () => {
         displayName: name.trim() || "Anonymous",
         start,
         target,
+        hintsDisabled: disableHints,
       });
       setMatchId(id);
       setPhase("room");
@@ -336,7 +340,7 @@ const Multiplayer = () => {
       setError("Couldn't create the room. Please try again.");
       setPhase("lobby");
     }
-  }, [name, playerId, pickPair]);
+  }, [name, playerId, pickPair, disableHints]);
 
   // ─── Join a private room by code ───
   const joinRoom = useCallback(
@@ -349,6 +353,7 @@ const Multiplayer = () => {
           playerId,
           displayName: name.trim() || "Anonymous",
           code,
+          hintsDisabled: disableHints,
         });
         setMatchId(id);
       } catch (e) {
@@ -359,7 +364,7 @@ const Multiplayer = () => {
         setPhase("lobby");
       }
     },
-    [name, playerId]
+    [name, playerId, disableHints]
   );
 
   const addBotNow = useCallback(async () => {
@@ -460,6 +465,10 @@ const Multiplayer = () => {
         setName={setName}
         category={category}
         setCategory={setCategory}
+        difficulty={difficulty}
+        setDifficulty={setDifficulty}
+        disableHints={disableHints}
+        setDisableHints={setDisableHints}
         onFind={findMatch}
         onCreateRoom={createRoom}
         onJoinRoom={joinRoom}
@@ -549,22 +558,24 @@ const Multiplayer = () => {
           </div>
           <div className="flex items-center gap-3 sm:gap-5 ticker">
             <Metric label="Time" value={formatTime(elapsed)} />
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 px-2 sm:px-3"
-              onClick={() => setHintOpen(true)}
-              title={
-                hintsUsed >= 3
-                  ? "All hints used"
-                  : `Reveal a hint about your target`
-              }
-            >
-              <Lightbulb className="w-3.5 h-3.5 sm:mr-1.5" />
-              <span className="hidden sm:inline">
-                Hint{hintsUsed > 0 ? ` ${hintsUsed}/3` : ""}
-              </span>
-            </Button>
+            {!match?.hints_disabled && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-2 sm:px-3"
+                onClick={() => setHintOpen(true)}
+                title={
+                  hintsUsed >= 3
+                    ? "All hints used"
+                    : `Reveal a hint about your target`
+                }
+              >
+                <Lightbulb className="w-3.5 h-3.5 sm:mr-1.5" />
+                <span className="hidden sm:inline">
+                  Hint{hintsUsed > 0 ? ` ${hintsUsed}/3` : ""}
+                </span>
+              </Button>
+            )}
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3">
@@ -675,6 +686,10 @@ const Lobby = ({
   setName,
   category,
   setCategory,
+  difficulty,
+  setDifficulty,
+  disableHints,
+  setDisableHints,
   onFind,
   onCreateRoom,
   onJoinRoom,
@@ -684,6 +699,10 @@ const Lobby = ({
   setName: (n: string) => void;
   category: string;
   setCategory: (c: string) => void;
+  difficulty: "easy" | "normal" | "hard";
+  setDifficulty: (d: "easy" | "normal" | "hard") => void;
+  disableHints: boolean;
+  setDisableHints: (v: boolean) => void;
   onFind: () => void;
   onCreateRoom: () => void;
   onJoinRoom: (code: string) => void;
@@ -781,6 +800,48 @@ const Lobby = ({
             When set, both racers head toward a target inside this category.
           </p>
         </div>
+
+        <div className="paper-card p-5 text-left mb-6">
+          <label className="small-caps text-[10px] text-ink-faint mb-2 block">
+            Target difficulty
+          </label>
+          <div className="grid grid-cols-3 gap-2">
+            {(["easy", "normal", "hard"] as const).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDifficulty(d)}
+                className={`serif text-sm py-2 rounded-md border transition-colors capitalize ${
+                  difficulty === d
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-input hover:bg-accent"
+                }`}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-ink-faint mt-2">
+            Easy = household names · Normal = mixed · Hard = obscure picks.
+          </p>
+        </div>
+
+        <label className="paper-card p-4 mb-6 flex items-start gap-3 cursor-pointer text-left hover:bg-accent/20 transition-colors">
+          <input
+            type="checkbox"
+            checked={disableHints}
+            onChange={(e) => setDisableHints(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+          />
+          <div className="flex-1">
+            <div className="serif font-semibold text-sm flex items-center gap-1.5">
+              <Lightbulb className="w-3.5 h-3.5" /> Disable hints (purist mode)
+            </div>
+            <p className="text-[11px] text-ink-faint mt-0.5">
+              Hides the Hint button for both racers. If either of you ticks this, hints are off for the match.
+            </p>
+          </div>
+        </label>
 
         {error && <p className="text-destructive text-sm mb-4">{error}</p>}
 

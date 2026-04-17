@@ -161,7 +161,7 @@ const Index = () => {
       } else {
         s = await getRandomTitle();
         const pickTarget = () =>
-          category ? getTitleForCategory(category) : getTitleForDifficulty(difficulty);
+          category ? getTitleForCategory(category, difficulty) : getTitleForDifficulty(difficulty);
         t = await pickTarget();
         let guard = 0;
         while (normaliseTitle(s) === normaliseTitle(t) && guard++ < 4) {

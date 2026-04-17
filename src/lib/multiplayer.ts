@@ -14,6 +14,7 @@ export type MatchRow = {
   winner_player_id: string | null;
   room_code: string | null;
   is_private: boolean;
+  hints_disabled: boolean;
 };
 
 export type MatchPlayerRow = {
@@ -35,12 +36,14 @@ export async function joinQuickMatch(args: {
   displayName: string;
   start: string;
   target: string;
+  hintsDisabled?: boolean;
 }): Promise<string> {
   const { data, error } = await supabase.rpc("join_quick_match", {
     p_player_id: args.playerId,
     p_display_name: args.displayName,
     p_start: args.start,
     p_target: args.target,
+    p_hints_disabled: args.hintsDisabled ?? false,
   });
   if (error) throw error;
   return data as string;
@@ -51,12 +54,14 @@ export async function createPrivateRoom(args: {
   displayName: string;
   start: string;
   target: string;
+  hintsDisabled?: boolean;
 }): Promise<{ matchId: string; roomCode: string }> {
   const { data, error } = await supabase.rpc("create_private_room", {
     p_player_id: args.playerId,
     p_display_name: args.displayName,
     p_start: args.start,
     p_target: args.target,
+    p_hints_disabled: args.hintsDisabled ?? false,
   });
   if (error) throw error;
   const row = (data as Array<{ match_id: string; room_code: string }>)[0];
@@ -67,11 +72,13 @@ export async function joinPrivateRoom(args: {
   playerId: string;
   displayName: string;
   code: string;
+  hintsDisabled?: boolean;
 }): Promise<string> {
   const { data, error } = await supabase.rpc("join_private_room", {
     p_player_id: args.playerId,
     p_display_name: args.displayName,
     p_code: args.code.trim().toUpperCase(),
+    p_hints_disabled: args.hintsDisabled ?? false,
   });
   if (error) throw error;
   return data as string;
