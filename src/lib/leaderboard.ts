@@ -3,7 +3,7 @@
 const KEY = "wikirace.leaderboard.v1";
 const MAX_ENTRIES = 50;
 
-export type GameMode = "random" | "daily";
+export type GameMode = "random" | "daily" | "custom";
 export type Difficulty = "easy" | "normal" | "hard";
 
 export type LeaderboardEntry = {
