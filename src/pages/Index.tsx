@@ -350,6 +350,22 @@ const Index = () => {
             <Metric label="Time" value={formatTime(elapsed)} />
             {undos > 0 && <Metric label="Undos" value={String(undos)} />}
             <Metric label="Score" value={score.toLocaleString()} accent />
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-2 sm:px-3"
+              onClick={() => setHintOpen(true)}
+              title={
+                hintsUsed >= 3
+                  ? "All hints used"
+                  : `Reveal a hint (−${HINT_COSTS[hintsUsed].toLocaleString()} pts)`
+              }
+            >
+              <Lightbulb className="w-3.5 h-3.5 sm:mr-1.5" />
+              <span className="hidden sm:inline">
+                Hint{hintsUsed > 0 ? ` ${hintsUsed}/3` : ""}
+              </span>
+            </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3">
