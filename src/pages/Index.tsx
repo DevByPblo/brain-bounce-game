@@ -662,7 +662,8 @@ const IdleScreen = ({
       </div>
     </div>
   </main>
-);
+  );
+};
 
 const ModeCard = ({
   active,
