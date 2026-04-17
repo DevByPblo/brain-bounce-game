@@ -792,6 +792,23 @@ const Lobby = ({
           </p>
         </div>
 
+        <label className="paper-card p-4 mb-6 flex items-start gap-3 cursor-pointer text-left hover:bg-accent/20 transition-colors">
+          <input
+            type="checkbox"
+            checked={disableHints}
+            onChange={(e) => setDisableHints(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+          />
+          <div className="flex-1">
+            <div className="serif font-semibold text-sm flex items-center gap-1.5">
+              <Lightbulb className="w-3.5 h-3.5" /> Disable hints (purist mode)
+            </div>
+            <p className="text-[11px] text-ink-faint mt-0.5">
+              Hides the Hint button for both racers. If either of you ticks this, hints are off for the match.
+            </p>
+          </div>
+        </label>
+
         {error && <p className="text-destructive text-sm mb-4">{error}</p>}
 
         <div className="grid sm:grid-cols-2 gap-3 mb-6">
