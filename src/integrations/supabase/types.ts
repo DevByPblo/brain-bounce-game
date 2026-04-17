@@ -68,6 +68,7 @@ export type Database = {
         Row: {
           created_at: string
           finished_at: string | null
+          hints_disabled: boolean
           id: string
           is_private: boolean
           room_code: string | null
@@ -80,6 +81,7 @@ export type Database = {
         Insert: {
           created_at?: string
           finished_at?: string | null
+          hints_disabled?: boolean
           id?: string
           is_private?: boolean
           room_code?: string | null
@@ -92,6 +94,7 @@ export type Database = {
         Update: {
           created_at?: string
           finished_at?: string | null
+          hints_disabled?: boolean
           id?: string
           is_private?: boolean
           room_code?: string | null
@@ -176,18 +179,32 @@ export type Database = {
         Args: { p_match_id: string; p_player_id: string }
         Returns: undefined
       }
-      create_private_room: {
-        Args: {
-          p_display_name: string
-          p_player_id: string
-          p_start: string
-          p_target: string
-        }
-        Returns: {
-          match_id: string
-          room_code: string
-        }[]
-      }
+      create_private_room:
+        | {
+            Args: {
+              p_display_name: string
+              p_player_id: string
+              p_start: string
+              p_target: string
+            }
+            Returns: {
+              match_id: string
+              room_code: string
+            }[]
+          }
+        | {
+            Args: {
+              p_display_name: string
+              p_hints_disabled?: boolean
+              p_player_id: string
+              p_start: string
+              p_target: string
+            }
+            Returns: {
+              match_id: string
+              room_code: string
+            }[]
+          }
       finish_match: {
         Args: {
           p_clicks: number
@@ -198,19 +215,44 @@ export type Database = {
         }
         Returns: undefined
       }
-      join_private_room: {
-        Args: { p_code: string; p_display_name: string; p_player_id: string }
-        Returns: string
-      }
-      join_quick_match: {
-        Args: {
-          p_display_name: string
-          p_player_id: string
-          p_start: string
-          p_target: string
-        }
-        Returns: string
-      }
+      join_private_room:
+        | {
+            Args: {
+              p_code: string
+              p_display_name: string
+              p_player_id: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_code: string
+              p_display_name: string
+              p_hints_disabled?: boolean
+              p_player_id: string
+            }
+            Returns: string
+          }
+      join_quick_match:
+        | {
+            Args: {
+              p_display_name: string
+              p_player_id: string
+              p_start: string
+              p_target: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_display_name: string
+              p_hints_disabled?: boolean
+              p_player_id: string
+              p_start: string
+              p_target: string
+            }
+            Returns: string
+          }
       migrate_anonymous_scores: {
         Args: { p_from_user: string }
         Returns: number
