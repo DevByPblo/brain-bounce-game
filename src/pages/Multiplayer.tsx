@@ -652,6 +652,18 @@ const Multiplayer = () => {
           </div>
         </article>
       </div>
+
+      <HintCard
+        open={hintOpen}
+        onOpenChange={setHintOpen}
+        target={targetSummary}
+        hintsUsed={hintsUsed}
+        onPurchase={() => {
+          setHintsUsed((n) => n + 1);
+          toast.info("Hint revealed");
+        }}
+        costLabel={() => "free in multiplayer"}
+      />
     </main>
   );
 };
