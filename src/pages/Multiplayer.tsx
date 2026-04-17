@@ -541,6 +541,7 @@ const Multiplayer = () => {
             currentTitle={opponentTitle}
             finished={opponentFinished}
             isBot={opponent?.is_bot}
+            pulseKey={opponentHopKey}
           />
         </div>
 
