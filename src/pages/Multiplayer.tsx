@@ -12,6 +12,7 @@ import {
   Copy,
   Flag,
   KeyRound,
+  Lightbulb,
   Loader2,
   Lock,
   MousePointerClick,
@@ -66,6 +67,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { setRaceActive } from "@/hooks/use-race-active";
+import { HintCard } from "@/components/HintCard";
 
 type Phase = "lobby" | "searching" | "room" | "briefing" | "racing" | "finished";
 type Mode = "quick" | "private";
@@ -100,6 +102,8 @@ const Multiplayer = () => {
   const [path, setPath] = useState<string[]>([]);
   const [clicks, setClicks] = useState(0);
   const [elapsed, setElapsed] = useState(0);
+  const [hintsUsed, setHintsUsed] = useState(0);
+  const [hintOpen, setHintOpen] = useState(false);
   const [opponentHopKey, setOpponentHopKey] = useState(0);
   const lastOpponentTitleRef = useRef<string | null>(null);
   const startedAtRef = useRef<number>(0);
@@ -442,6 +446,7 @@ const Multiplayer = () => {
     setPath([]);
     setClicks(0);
     setElapsed(0);
+    setHintsUsed(0);
     finishedRef.current = false;
     setPhase("lobby");
   }, []);
@@ -544,6 +549,22 @@ const Multiplayer = () => {
           </div>
           <div className="flex items-center gap-3 sm:gap-5 ticker">
             <Metric label="Time" value={formatTime(elapsed)} />
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-2 sm:px-3"
+              onClick={() => setHintOpen(true)}
+              title={
+                hintsUsed >= 3
+                  ? "All hints used"
+                  : `Reveal a hint about your target`
+              }
+            >
+              <Lightbulb className="w-3.5 h-3.5 sm:mr-1.5" />
+              <span className="hidden sm:inline">
+                Hint{hintsUsed > 0 ? ` ${hintsUsed}/3` : ""}
+              </span>
+            </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3">
@@ -631,6 +652,18 @@ const Multiplayer = () => {
           </div>
         </article>
       </div>
+
+      <HintCard
+        open={hintOpen}
+        onOpenChange={setHintOpen}
+        target={targetSummary}
+        hintsUsed={hintsUsed}
+        onPurchase={() => {
+          setHintsUsed((n) => n + 1);
+          toast.info("Hint revealed");
+        }}
+        costLabel={() => "free in multiplayer"}
+      />
     </main>
   );
 };

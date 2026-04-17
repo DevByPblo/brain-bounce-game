@@ -42,6 +42,7 @@ import {
   Pencil,
   Share2,
   Check,
+  Lightbulb,
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
@@ -56,6 +57,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { setRaceActive } from "@/hooks/use-race-active";
+import { HintCard, HINT_COSTS } from "@/components/HintCard";
 
 type Phase = "idle" | "loading" | "playing" | "won";
 
@@ -72,7 +74,8 @@ const computeScore = (
   clicks: number,
   ms: number,
   undos: number,
-  difficulty: Difficulty
+  difficulty: Difficulty,
+  hintCost = 0
 ) => {
   const base = 10000;
   const clickPenalty = clicks * 350;
@@ -82,7 +85,7 @@ const computeScore = (
     difficulty === "hard" ? 1.5 : difficulty === "easy" ? 0.85 : 1;
   return Math.max(
     50,
-    Math.round((base - clickPenalty - timePenalty - undoPenalty) * diffMultiplier)
+    Math.round((base - clickPenalty - timePenalty - undoPenalty) * diffMultiplier) - hintCost
   );
 };
 
@@ -102,9 +105,16 @@ const Index = () => {
   const [clicks, setClicks] = useState(0);
   const [undos, setUndos] = useState(0);
   const [elapsed, setElapsed] = useState(0);
+  const [hintsUsed, setHintsUsed] = useState(0);
+  const [hintOpen, setHintOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const startRef = useRef<number>(0);
   const autoStartedRef = useRef(false);
+
+  const hintCost = useMemo(
+    () => HINT_COSTS.slice(0, hintsUsed).reduce((a, b) => a + b, 0),
+    [hintsUsed]
+  );
 
   // Timer
   useEffect(() => {
@@ -120,8 +130,8 @@ const Index = () => {
   }, [phase]);
 
   const score = useMemo(
-    () => computeScore(clicks, elapsed, undos, difficulty),
-    [clicks, elapsed, undos, difficulty]
+    () => computeScore(clicks, elapsed, undos, difficulty, hintCost),
+    [clicks, elapsed, undos, difficulty, hintCost]
   );
 
   const newGame = useCallback(async () => {
@@ -131,6 +141,7 @@ const Index = () => {
     setClicks(0);
     setUndos(0);
     setElapsed(0);
+    setHintsUsed(0);
     setArticleHtml("");
     try {
       let s: string;
@@ -206,7 +217,8 @@ const Index = () => {
         finalClicks,
         finalElapsed,
         finalUndos,
-        difficulty
+        difficulty,
+        hintCost
       );
       if (start && target) {
         addEntry({
@@ -247,7 +259,7 @@ const Index = () => {
       setPath(finalPath);
       setPhase("won");
     },
-    [difficulty, mode, start, target]
+    [difficulty, mode, start, target, hintCost]
   );
 
   const navigate = useCallback(
@@ -338,6 +350,22 @@ const Index = () => {
             <Metric label="Time" value={formatTime(elapsed)} />
             {undos > 0 && <Metric label="Undos" value={String(undos)} />}
             <Metric label="Score" value={score.toLocaleString()} accent />
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-2 sm:px-3"
+              onClick={() => setHintOpen(true)}
+              title={
+                hintsUsed >= 3
+                  ? "All hints used"
+                  : `Reveal a hint (−${HINT_COSTS[hintsUsed].toLocaleString()} pts)`
+              }
+            >
+              <Lightbulb className="w-3.5 h-3.5 sm:mr-1.5" />
+              <span className="hidden sm:inline">
+                Hint{hintsUsed > 0 ? ` ${hintsUsed}/3` : ""}
+              </span>
+            </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3">
@@ -457,6 +485,18 @@ const Index = () => {
           </p>
         </aside>
       </div>
+
+      <HintCard
+        open={hintOpen}
+        onOpenChange={setHintOpen}
+        target={target}
+        hintsUsed={hintsUsed}
+        onPurchase={() => {
+          const cost = HINT_COSTS[hintsUsed];
+          setHintsUsed((n) => n + 1);
+          toast.info(`Hint revealed (−${cost.toLocaleString()} pts)`);
+        }}
+      />
     </main>
   );
 };

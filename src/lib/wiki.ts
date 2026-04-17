@@ -199,6 +199,62 @@ export function normaliseTitle(t: string): string {
   return decodeURIComponent(t).replace(/_/g, " ").trim().toLowerCase();
 }
 
+/** Fetch the top-level (non-hidden) Wikipedia categories for a title. */
+export async function getCategories(title: string, limit = 12): Promise<string[]> {
+  const url = apiUrl({
+    action: "query",
+    titles: title,
+    prop: "categories",
+    cllimit: String(limit),
+    clshow: "!hidden",
+    formatversion: "2",
+    redirects: "1",
+  });
+  try {
+    const res = await fetch(url);
+    const json = await res.json();
+    const pages = json?.query?.pages ?? [];
+    const cats = pages[0]?.categories ?? [];
+    return cats
+      .map((c: { title: string }) => c.title.replace(/^Category:/, ""))
+      .filter((c: string) => !/articles|wikipedia|stub|cs1|use \w+ dates|pages /i.test(c))
+      .slice(0, limit);
+  } catch (e) {
+    console.error("getCategories", e);
+    return [];
+  }
+}
+
+/** Fetch a sample of articles that link TO the given title (good stepping stones). */
+export async function getBacklinks(title: string, limit = 10): Promise<string[]> {
+  const url = apiUrl({
+    action: "query",
+    list: "backlinks",
+    bltitle: title,
+    blnamespace: "0",
+    blfilterredir: "nonredirects",
+    bllimit: "50",
+    formatversion: "2",
+  });
+  try {
+    const res = await fetch(url);
+    const json = await res.json();
+    const links: { title: string }[] = json?.query?.backlinks ?? [];
+    const filtered = links
+      .map((l) => l.title)
+      .filter((t) => !isBadTitle(t));
+    // Shuffle for variety, then trim.
+    for (let i = filtered.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
+    }
+    return filtered.slice(0, limit);
+  } catch (e) {
+    console.error("getBacklinks", e);
+    return [];
+  }
+}
+
 /**
  * Resolve a free-text query to a real Wikipedia article title.
  * Uses the search API + page summary to confirm the page exists.
