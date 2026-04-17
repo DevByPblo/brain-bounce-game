@@ -73,6 +73,7 @@ const Index = () => {
   const [phase, setPhase] = useState<Phase>("idle");
   const [mode, setMode] = useState<GameMode>("random");
   const [difficulty, setDifficulty] = useState<Difficulty>("normal");
+  const [customTarget, setCustomTarget] = useState<string>("");
   const [start, setStart] = useState<WikiSummary | null>(null);
   const [target, setTarget] = useState<WikiSummary | null>(null);
   const [currentTitle, setCurrentTitle] = useState<string>("");
