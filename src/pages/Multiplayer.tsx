@@ -743,7 +743,151 @@ const RoomWaiting = ({
   );
 };
 
-const Results = ({
+const Briefing = ({
+  startSummary,
+  targetSummary,
+  startTitle,
+  targetTitle,
+  ready,
+  onStart,
+}: {
+  startSummary: WikiSummary | null;
+  targetSummary: WikiSummary | null;
+  startTitle: string;
+  targetTitle: string;
+  ready: boolean;
+  onStart: () => void;
+}) => {
+  const [count, setCount] = useState<number>(3);
+  const fired = useRef(false);
+
+  // Once everything is loaded, run a 3 → 2 → 1 → GO countdown, then start.
+  useEffect(() => {
+    if (!ready) return;
+    setCount(3);
+    const id = window.setInterval(() => {
+      setCount((c) => {
+        if (c <= 1) {
+          window.clearInterval(id);
+          if (!fired.current) {
+            fired.current = true;
+            // Tiny delay so the user sees "GO!"
+            window.setTimeout(onStart, 450);
+          }
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 900);
+    return () => window.clearInterval(id);
+  }, [ready, onStart]);
+
+  return (
+    <main className="relative z-10 min-h-screen flex items-center justify-center px-6 py-16">
+      <div className="max-w-4xl w-full">
+        <div className="text-center mb-6">
+          <div className="small-caps text-xs text-ink-soft mb-2">The brief</div>
+          <h2 className="serif text-4xl md:text-5xl font-extrabold mb-2">
+            Get ready to race.
+          </h2>
+          <p className="serif italic text-muted-foreground">
+            From this article, find your way to the target — using only links.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4 mb-8">
+          <BriefingCard
+            label="You start at"
+            icon={<Flag className="w-3.5 h-3.5" />}
+            title={startSummary?.title ?? startTitle}
+            extract={startSummary?.extract}
+            thumbnail={startSummary?.thumbnail}
+          />
+          <BriefingCard
+            label="You must reach"
+            icon={<Target className="w-3.5 h-3.5" />}
+            title={targetSummary?.title ?? targetTitle}
+            extract={targetSummary?.extract}
+            thumbnail={targetSummary?.thumbnail}
+            accent
+          />
+        </div>
+
+        <div className="paper-card p-8 text-center">
+          {!ready ? (
+            <>
+              <Loader2 className="w-7 h-7 mx-auto animate-spin text-primary mb-3" />
+              <div className="small-caps text-xs text-ink-faint">
+                Loading articles…
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="small-caps text-[10px] text-ink-faint mb-1">
+                Starting in
+              </div>
+              <div
+                key={count}
+                className="serif text-7xl md:text-8xl font-extrabold text-primary leading-none animate-in zoom-in duration-300"
+              >
+                {count > 0 ? count : "GO!"}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </main>
+  );
+};
+
+const BriefingCard = ({
+  label,
+  icon,
+  title,
+  extract,
+  thumbnail,
+  accent,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  title: string;
+  extract?: string;
+  thumbnail?: string;
+  accent?: boolean;
+}) => (
+  <div
+    className={`paper-card p-5 ${accent ? "ring-2 ring-primary/40" : ""}`}
+  >
+    <div className="flex items-center gap-2 mb-2">
+      <span className={accent ? "text-primary" : "text-ink-soft"}>{icon}</span>
+      <span className="small-caps text-[10px] text-ink-faint">{label}</span>
+    </div>
+    <div className="flex gap-4">
+      {thumbnail && (
+        <img
+          src={thumbnail}
+          alt=""
+          className="w-20 h-20 object-cover rounded border border-rule flex-shrink-0"
+          loading="eager"
+        />
+      )}
+      <div className="min-w-0 flex-1">
+        <h3
+          className={`serif text-2xl font-extrabold leading-tight mb-1 ${
+            accent ? "text-primary" : ""
+          }`}
+        >
+          {title}
+        </h3>
+        <p className="serif text-sm text-ink-soft line-clamp-4">
+          {extract || "…"}
+        </p>
+      </div>
+    </div>
+  </div>
+);
+
+
   match,
   me,
   opponent,
