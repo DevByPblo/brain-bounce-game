@@ -1069,6 +1069,7 @@ const PlayerCard = ({
   name,
   clicks,
   currentTitle,
+  tensionLine,
   finished,
   self,
   isBot,
@@ -1077,6 +1078,7 @@ const PlayerCard = ({
   name: string;
   clicks: number;
   currentTitle: string | null;
+  tensionLine?: string;
   finished: boolean;
   self?: boolean;
   isBot?: boolean;
@@ -1099,11 +1101,18 @@ const PlayerCard = ({
         )}
       </div>
       <div className="serif font-bold truncate">{name}</div>
-      {currentTitle && (
-        <div className="text-[11px] text-ink-soft truncate">on “{currentTitle}”</div>
-      )}
-      {!self && !finished && (
-        <div className="text-[11px] text-ink-faint italic">path hidden until finish</div>
+      {self ? (
+        tensionLine && (
+          <div className="text-[11px] text-ink-soft italic truncate">
+            {tensionLine}
+          </div>
+        )
+      ) : finished ? null : currentTitle ? (
+        <div className="text-[11px] text-ink-soft truncate">
+          reading <span className="italic">“{currentTitle}”</span>
+        </div>
+      ) : (
+        <div className="text-[11px] text-ink-faint italic">warming up…</div>
       )}
     </div>
     <div className="text-right">
