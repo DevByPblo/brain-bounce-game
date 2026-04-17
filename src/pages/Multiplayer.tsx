@@ -467,7 +467,24 @@ const Multiplayer = () => {
   // racing
   const opponentClicks = opponent?.clicks ?? 0;
   const opponentFinished = !!opponent?.finished_at;
-  const myTitle = currentTitle;
+  const opponentTitle = opponent?.current_title ?? null;
+  
+
+  // A bit of theatrical tension for the player: as their opponent racks up
+  // clicks, surface increasingly-anxious flavour text on the player's own
+  // card. We never show the player their own current article (they can see
+  // it in the article header) — this slot is reserved for psychological
+  // pressure based on the opponent's pace.
+  const tensionLine = (() => {
+    if (opponentFinished) return "Your rival has filed their copy.";
+    const lead = opponentClicks - clicks;
+    if (lead >= 4) return "Your rival is sprinting ahead.";
+    if (lead >= 2) return "Your rival is gaining ground.";
+    if (lead === 1) return "Your rival just turned a page.";
+    if (lead === 0 && opponentClicks > 0) return "Neck and neck.";
+    if (lead <= -2 && clicks > 0) return "You're pulling away.";
+    return "The press is quiet… for now.";
+  })();
 
   return (
     <main className="relative z-10 min-h-screen flex flex-col">
@@ -495,7 +512,8 @@ const Multiplayer = () => {
             label="You"
             name={me?.display_name ?? name}
             clicks={clicks}
-            currentTitle={myTitle}
+            currentTitle={null}
+            tensionLine={tensionLine}
             finished={!!me?.finished_at}
             self
           />
@@ -503,7 +521,7 @@ const Multiplayer = () => {
             label={opponent?.is_bot ? "Bot" : "Opponent"}
             name={opponent?.display_name ?? "Waiting…"}
             clicks={opponentClicks}
-            currentTitle={null}
+            currentTitle={opponentTitle}
             finished={opponentFinished}
             isBot={opponent?.is_bot}
           />
@@ -1051,6 +1069,7 @@ const PlayerCard = ({
   name,
   clicks,
   currentTitle,
+  tensionLine,
   finished,
   self,
   isBot,
@@ -1059,6 +1078,7 @@ const PlayerCard = ({
   name: string;
   clicks: number;
   currentTitle: string | null;
+  tensionLine?: string;
   finished: boolean;
   self?: boolean;
   isBot?: boolean;
@@ -1081,11 +1101,18 @@ const PlayerCard = ({
         )}
       </div>
       <div className="serif font-bold truncate">{name}</div>
-      {currentTitle && (
-        <div className="text-[11px] text-ink-soft truncate">on “{currentTitle}”</div>
-      )}
-      {!self && !finished && (
-        <div className="text-[11px] text-ink-faint italic">path hidden until finish</div>
+      {self ? (
+        tensionLine && (
+          <div className="text-[11px] text-ink-soft italic truncate">
+            {tensionLine}
+          </div>
+        )
+      ) : finished ? null : currentTitle ? (
+        <div className="text-[11px] text-ink-soft truncate">
+          reading <span className="italic">“{currentTitle}”</span>
+        </div>
+      ) : (
+        <div className="text-[11px] text-ink-faint italic">warming up…</div>
       )}
     </div>
     <div className="text-right">
