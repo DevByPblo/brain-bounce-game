@@ -308,6 +308,7 @@ const Multiplayer = () => {
         displayName: name.trim() || "Anonymous",
         start,
         target,
+        hintsDisabled: disableHints,
       });
       setMatchId(id);
     } catch (e) {
@@ -315,7 +316,7 @@ const Multiplayer = () => {
       setError("Couldn't reach the matchmaker. Please try again.");
       setPhase("lobby");
     }
-  }, [name, playerId, pickPair]);
+  }, [name, playerId, pickPair, disableHints]);
 
   // ─── Create a private room ───
   const createRoom = useCallback(async () => {
@@ -350,6 +351,7 @@ const Multiplayer = () => {
           playerId,
           displayName: name.trim() || "Anonymous",
           code,
+          hintsDisabled: disableHints,
         });
         setMatchId(id);
       } catch (e) {
@@ -360,7 +362,7 @@ const Multiplayer = () => {
         setPhase("lobby");
       }
     },
-    [name, playerId]
+    [name, playerId, disableHints]
   );
 
   const addBotNow = useCallback(async () => {
