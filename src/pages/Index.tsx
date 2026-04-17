@@ -13,6 +13,8 @@ import {
   type WikiSummary,
 } from "@/lib/wiki";
 import { CATEGORIES, OTHER_CATEGORIES, POPULAR_CATEGORIES, getTitleForCategory } from "@/lib/categories";
+import { recordCategoryUse } from "@/lib/categoryStats";
+import { useFavoriteCategories } from "@/hooks/use-favorite-categories";
 import {
   addEntry,
   getLeaderboardView,
@@ -154,6 +156,7 @@ const Index = () => {
         while (normaliseTitle(s) === normaliseTitle(t) && guard++ < 4) {
           t = await pickTarget();
         }
+        if (category) recordCategoryUse(category);
       }
       const [sSum, tSum, art] = await Promise.all([
         getSummary(s),
@@ -484,7 +487,12 @@ const IdleScreen = ({
   onStart: () => void;
   loading: boolean;
   error: string | null;
-}) => (
+}) => {
+  const favorites = useFavoriteCategories(3);
+  const favoriteDefs = favorites
+    .map((label) => CATEGORIES.find((c) => c.label === label))
+    .filter((c): c is (typeof CATEGORIES)[number] => Boolean(c));
+  return (
   <main className="relative z-10 min-h-screen flex items-center justify-center px-4 sm:px-6 py-10 sm:py-16">
     <div className="max-w-3xl w-full text-center">
       <div className="small-caps text-xs text-ink-soft mb-4 sm:mb-6">
@@ -595,6 +603,15 @@ const IdleScreen = ({
           onChange={(e) => setCategory(e.target.value)}
         >
           <option value="">Any Category</option>
+          {favoriteDefs.length > 0 && (
+            <optgroup label="★ Your favorites">
+              {favoriteDefs.map((c) => (
+                <option key={`fav-${c.label}`} value={c.label}>
+                  {c.label}
+                </option>
+              ))}
+            </optgroup>
+          )}
           <optgroup label="★ Popular">
             {POPULAR_CATEGORIES.map((c) => (
               <option key={c.label} value={c.label}>
@@ -654,7 +671,8 @@ const IdleScreen = ({
       </div>
     </div>
   </main>
-);
+  );
+};
 
 const ModeCard = ({
   active,
