@@ -608,8 +608,6 @@ const IdleScreen = ({
                 {c.label}</option>
             ))}
           </optgroup>
-            </option>
-          ))}
         </select>
         <p className="text-[11px] text-ink-faint mt-2">
           When set, your target will be drawn from this category.
