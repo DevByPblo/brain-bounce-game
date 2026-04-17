@@ -115,7 +115,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const updateProfile = async (patch: { display_name?: string; avatar_id?: string }) => {
     if (!user?.id) return;
-    const clean: Record<string, string> = {};
+    const clean: { display_name?: string; avatar_id?: string } = {};
     if (patch.display_name !== undefined) {
       const trimmed = patch.display_name.trim().slice(0, 32);
       if (trimmed) clean.display_name = trimmed;
