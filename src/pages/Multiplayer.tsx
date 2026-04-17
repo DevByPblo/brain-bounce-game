@@ -512,7 +512,8 @@ const Multiplayer = () => {
             label="You"
             name={me?.display_name ?? name}
             clicks={clicks}
-            currentTitle={myTitle}
+            currentTitle={null}
+            tensionLine={tensionLine}
             finished={!!me?.finished_at}
             self
           />
@@ -520,7 +521,7 @@ const Multiplayer = () => {
             label={opponent?.is_bot ? "Bot" : "Opponent"}
             name={opponent?.display_name ?? "Waiting…"}
             clicks={opponentClicks}
-            currentTitle={null}
+            currentTitle={opponentTitle}
             finished={opponentFinished}
             isBot={opponent?.is_bot}
           />
