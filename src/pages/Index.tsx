@@ -113,6 +113,14 @@ const Index = () => {
         const pair = await getDailyPair();
         s = pair.start;
         t = pair.target;
+      } else if (mode === "custom") {
+        // Resolve user-entered word to a real article, then pick a random start.
+        t = await resolveTitleFromQuery(customTarget);
+        s = await getRandomTitle();
+        let guard = 0;
+        while (normaliseTitle(s) === normaliseTitle(t) && guard++ < 4) {
+          s = await getRandomTitle();
+        }
       } else {
         s = await getRandomTitle();
         t = await getTitleForDifficulty(difficulty);
@@ -135,10 +143,11 @@ const Index = () => {
       setPhase("playing");
     } catch (e) {
       console.error(e);
-      setError("Couldn't reach Wikipedia. Try again.");
+      const msg = e instanceof Error ? e.message : "Couldn't reach Wikipedia. Try again.";
+      setError(msg);
       setPhase("idle");
     }
-  }, [mode, difficulty]);
+  }, [mode, difficulty, customTarget]);
 
   const finishGame = useCallback(
     (
@@ -163,6 +172,30 @@ const Index = () => {
           mode,
           difficulty,
         });
+
+        // Auto-submit to the global online leaderboard for daily + custom races.
+        // Anonymous users get an auto-created session so they still appear on the board.
+        if (mode === "daily" || mode === "custom") {
+          (async () => {
+            const uid = await ensureSession();
+            if (!uid) return;
+            const res = await submitScore({
+              mode: "race",
+              score: finalScore,
+              clicks: finalClicks,
+              timeMs: finalElapsed,
+              details: {
+                start: start.title,
+                target: target.title,
+                gameMode: mode,
+                difficulty,
+              },
+            });
+            if (res.ok) {
+              toast.success("Score submitted to the global leaderboard!");
+            }
+          })();
+        }
       }
       setElapsed(finalElapsed);
       setPath(finalPath);
