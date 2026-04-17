@@ -21,6 +21,7 @@ export type Database = {
           display_name: string
           finished_at: string | null
           id: string
+          is_bot: boolean
           joined_at: string
           match_id: string
           path: Json
@@ -33,6 +34,7 @@ export type Database = {
           display_name: string
           finished_at?: string | null
           id?: string
+          is_bot?: boolean
           joined_at?: string
           match_id: string
           path?: Json
@@ -45,6 +47,7 @@ export type Database = {
           display_name?: string
           finished_at?: string | null
           id?: string
+          is_bot?: boolean
           joined_at?: string
           match_id?: string
           path?: Json
@@ -66,6 +69,8 @@ export type Database = {
           created_at: string
           finished_at: string | null
           id: string
+          is_private: boolean
+          room_code: string | null
           start_title: string | null
           started_at: string | null
           status: string
@@ -76,6 +81,8 @@ export type Database = {
           created_at?: string
           finished_at?: string | null
           id?: string
+          is_private?: boolean
+          room_code?: string | null
           start_title?: string | null
           started_at?: string | null
           status?: string
@@ -86,6 +93,8 @@ export type Database = {
           created_at?: string
           finished_at?: string | null
           id?: string
+          is_private?: boolean
+          room_code?: string | null
           start_title?: string | null
           started_at?: string | null
           status?: string
@@ -156,9 +165,25 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_bot_to_match: {
+        Args: { p_bot_name: string; p_match_id: string; p_player_id: string }
+        Returns: string
+      }
       cancel_match: {
         Args: { p_match_id: string; p_player_id: string }
         Returns: undefined
+      }
+      create_private_room: {
+        Args: {
+          p_display_name: string
+          p_player_id: string
+          p_start: string
+          p_target: string
+        }
+        Returns: {
+          match_id: string
+          room_code: string
+        }[]
       }
       finish_match: {
         Args: {
@@ -169,6 +194,10 @@ export type Database = {
           p_time_ms: number
         }
         Returns: undefined
+      }
+      join_private_room: {
+        Args: { p_code: string; p_display_name: string; p_player_id: string }
+        Returns: string
       }
       join_quick_match: {
         Args: {
