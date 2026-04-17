@@ -657,6 +657,10 @@ const Lobby = ({
   error: string | null;
 }) => {
   const [code, setCode] = useState("");
+  const favorites = useFavoriteCategories(3);
+  const favoriteDefs = favorites
+    .map((label) => CATEGORIES.find((c) => c.label === label))
+    .filter((c): c is (typeof CATEGORIES)[number] => Boolean(c));
   return (
     <main className="relative z-10 min-h-screen flex items-center justify-center px-4 sm:px-6 py-10 sm:py-16">
       <div className="max-w-xl w-full text-center">
@@ -716,6 +720,15 @@ const Lobby = ({
             onChange={(e) => setCategory(e.target.value)}
           >
             <option value="">Any Category</option>
+            {favoriteDefs.length > 0 && (
+              <optgroup label="★ Your favorites">
+                {favoriteDefs.map((c) => (
+                  <option key={`fav-${c.label}`} value={c.label}>
+                    {c.label}
+                  </option>
+                ))}
+              </optgroup>
+            )}
             <optgroup label="★ Popular">
               {POPULAR_CATEGORIES.map((c) => (
                 <option key={c.label} value={c.label}>
