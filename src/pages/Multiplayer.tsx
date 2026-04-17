@@ -87,6 +87,7 @@ const Multiplayer = () => {
   const [mode, setMode] = useState<Mode>("quick");
   const [name, setName] = useState<string>(() => getPlayerName());
   const [category, setCategory] = useState<string>("");
+  const [difficulty, setDifficulty] = useState<"easy" | "normal" | "hard">("normal");
   const [disableHints, setDisableHints] = useState<boolean>(false);
   const playerId = useMemo(() => getPlayerId(), []);
   const [error, setError] = useState<string | null>(null);
@@ -286,7 +287,7 @@ const Multiplayer = () => {
   const pickPair = useCallback(async () => {
     const s = await getRandomTitle();
     const pickTarget = () =>
-      category ? getTitleForCategory(category) : getRandomTitle();
+      category ? getTitleForCategory(category, difficulty) : getRandomTitle();
     let t = await pickTarget();
     let guard = 0;
     while (normaliseTitle(s) === normaliseTitle(t) && guard++ < 4) {
@@ -294,7 +295,7 @@ const Multiplayer = () => {
     }
     if (category) recordCategoryUse(category);
     return { start: s, target: t };
-  }, [category]);
+  }, [category, difficulty]);
 
   // ─── Find a quick match ───
   const findMatch = useCallback(async () => {
