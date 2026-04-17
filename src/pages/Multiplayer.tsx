@@ -446,6 +446,7 @@ const Multiplayer = () => {
     setPath([]);
     setClicks(0);
     setElapsed(0);
+    setHintsUsed(0);
     finishedRef.current = false;
     setPhase("lobby");
   }, []);
