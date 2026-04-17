@@ -94,6 +94,63 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      scores: {
+        Row: {
+          clicks: number
+          created_at: string
+          details: Json
+          id: string
+          mode: string
+          score: number
+          time_ms: number
+          user_id: string
+        }
+        Insert: {
+          clicks?: number
+          created_at?: string
+          details?: Json
+          id?: string
+          mode: string
+          score: number
+          time_ms?: number
+          user_id: string
+        }
+        Update: {
+          clicks?: number
+          created_at?: string
+          details?: Json
+          id?: string
+          mode?: string
+          score?: number
+          time_ms?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
