@@ -427,6 +427,19 @@ const Multiplayer = () => {
     );
   }
 
+  if (phase === "briefing") {
+    return (
+      <Briefing
+        startSummary={startSummary}
+        targetSummary={targetSummary}
+        startTitle={match?.start_title ?? ""}
+        targetTitle={match?.target_title ?? ""}
+        ready={!!articleHtml && !!startSummary && !!targetSummary}
+        onStart={handleBriefingDone}
+      />
+    );
+  }
+
   if (phase === "finished") {
     return (
       <Results
