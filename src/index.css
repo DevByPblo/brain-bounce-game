@@ -127,63 +127,121 @@
     letter-spacing: 0.14em;
   }
 
-  /* Wikipedia article rendering */
+  /* Wikipedia-faithful article rendering */
   .wiki-article {
     color: hsl(var(--ink));
-    font-family: 'Fraunces', Georgia, serif;
-    font-size: 1.0625rem;
-    line-height: 1.7;
+    /* Wikipedia uses sans-serif as the default reading font for article body */
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 0.95rem;
+    line-height: 1.65;
   }
   .wiki-article h1,
   .wiki-article h2,
   .wiki-article h3,
-  .wiki-article h4 {
-    font-family: 'Fraunces', Georgia, serif;
-    font-weight: 700;
-    margin-top: 1.6em;
+  .wiki-article h4,
+  .wiki-article h5 {
+    font-family: 'Linux Libertine', 'Georgia', 'Times New Roman', serif;
+    font-weight: 400;
+    margin-top: 1em;
     margin-bottom: 0.5em;
-    line-height: 1.15;
-  }
-  .wiki-article h1 { font-size: 2.25rem; }
-  .wiki-article h2 {
-    font-size: 1.5rem;
-    border-bottom: 1px solid hsl(var(--rule));
-    padding-bottom: 0.25rem;
-  }
-  .wiki-article h3 { font-size: 1.2rem; }
-  .wiki-article p { margin: 0.75em 0; }
-  .wiki-article ul, .wiki-article ol { margin: 0.75em 0 0.75em 1.5em; }
-  .wiki-article li { margin: 0.25em 0; }
-  .wiki-article a {
-    color: hsl(var(--primary));
-    text-decoration: none;
-    border-bottom: 1px solid hsl(var(--primary) / 0.3);
-    transition: background-color 120ms ease, color 120ms ease;
-    padding: 0 1px;
-  }
-  .wiki-article a:hover {
-    background-color: hsl(var(--highlight) / 0.55);
+    line-height: 1.25;
     color: hsl(var(--ink));
   }
+  .wiki-article h1 { font-size: 1.95rem; border-bottom: 1px solid hsl(var(--rule)); padding-bottom: 0.25rem; }
+  .wiki-article h2 { font-size: 1.55rem; border-bottom: 1px solid hsl(var(--rule)); padding-bottom: 0.2rem; margin-top: 1.4em; }
+  .wiki-article h3 { font-size: 1.2rem; font-weight: 600; }
+  .wiki-article h4 { font-size: 1.05rem; font-weight: 600; }
+  .wiki-article p { margin: 0.6em 0; }
+  .wiki-article ul, .wiki-article ol { margin: 0.5em 0 0.5em 1.5em; }
+  .wiki-article li { margin: 0.2em 0; }
+  .wiki-article a {
+    color: hsl(210 80% 38%); /* Wikipedia blue */
+    text-decoration: none;
+    transition: background-color 120ms ease, text-decoration-color 120ms ease;
+  }
+  .wiki-article a:hover { text-decoration: underline; }
   .wiki-article a.target-link {
     background-color: hsl(var(--highlight) / 0.65);
-    box-shadow: 0 0 0 2px hsl(var(--highlight) / 0.4);
+    box-shadow: 0 -1px 0 hsl(var(--highlight) / 0.65), 0 1px 0 hsl(var(--highlight) / 0.65);
+    border-radius: 2px;
   }
-  .wiki-article img,
+
+  /* Images, figures, captions */
+  .wiki-article img { max-width: 100%; height: auto; }
   .wiki-article figure,
-  .wiki-article table,
-  .wiki-article .infobox,
-  .wiki-article .navbox,
-  .wiki-article .thumb,
-  .wiki-article .hatnote,
-  .wiki-article .reference,
-  .wiki-article .reflist,
-  .wiki-article sup.reference,
-  .wiki-article .mw-editsection,
-  .wiki-article style,
-  .wiki-article script {
-    display: none !important;
+  .wiki-article .thumb {
+    margin: 0.5em 0 0.8em 1em;
+    float: right;
+    clear: right;
+    max-width: 280px;
+    background: hsl(var(--paper-deep) / 0.5);
+    border: 1px solid hsl(var(--rule));
+    padding: 4px;
+    font-size: 0.82rem;
+    line-height: 1.4;
   }
+  .wiki-article figure img,
+  .wiki-article .thumb img { display: block; margin: 0 auto; max-width: 100%; }
+  .wiki-article figcaption,
+  .wiki-article .thumbcaption {
+    padding: 5px 4px 2px;
+    color: hsl(var(--ink-soft));
+  }
+  .wiki-article .thumbinner { width: 100% !important; }
+
+  /* Infobox */
+  .wiki-article .infobox {
+    float: right;
+    clear: right;
+    margin: 0 0 1em 1em;
+    width: 22em;
+    max-width: 100%;
+    border: 1px solid hsl(var(--rule));
+    background: hsl(var(--card));
+    font-size: 0.82rem;
+    line-height: 1.45;
+    border-collapse: collapse;
+  }
+  .wiki-article .infobox caption,
+  .wiki-article .infobox-title,
+  .wiki-article .infobox th[colspan] {
+    background: hsl(var(--paper-deep));
+    font-weight: 700;
+    text-align: center;
+    padding: 6px 8px;
+    font-family: 'Linux Libertine', Georgia, serif;
+    font-size: 1rem;
+  }
+  .wiki-article .infobox th,
+  .wiki-article .infobox td {
+    padding: 4px 8px;
+    vertical-align: top;
+    border-top: 1px solid hsl(var(--rule) / 0.6);
+  }
+  .wiki-article .infobox th {
+    text-align: left;
+    background: hsl(var(--paper-deep) / 0.4);
+    width: 35%;
+  }
+  .wiki-article .infobox img { max-width: 100% !important; height: auto !important; }
+
+  /* Generic tables (excluding infobox, navbox already removed) */
+  .wiki-article table.wikitable {
+    border-collapse: collapse;
+    margin: 1em 0;
+    background: hsl(var(--card));
+    font-size: 0.85rem;
+  }
+  .wiki-article table.wikitable th,
+  .wiki-article table.wikitable td {
+    border: 1px solid hsl(var(--rule));
+    padding: 4px 8px;
+  }
+  .wiki-article table.wikitable th {
+    background: hsl(var(--paper-deep));
+    font-weight: 700;
+  }
+
   .wiki-article blockquote {
     border-left: 3px solid hsl(var(--primary));
     padding-left: 1rem;
@@ -191,7 +249,68 @@
     font-style: italic;
   }
 
+  .wiki-article hr { border: 0; border-top: 1px solid hsl(var(--rule)); margin: 1em 0; }
+
+  /* Hide leftover wiki chrome */
+  .wiki-article .mw-editsection,
+  .wiki-article .reference,
+  .wiki-article sup.reference,
+  .wiki-article .reflist,
+  .wiki-article .navbox,
+  .wiki-article .vertical-navbox,
+  .wiki-article .ambox,
+  .wiki-article .metadata,
+  .wiki-article .noprint,
+  .wiki-article .hatnote,
+  .wiki-article .toc,
+  .wiki-article #toc,
+  .wiki-article style,
+  .wiki-article script {
+    display: none !important;
+  }
+
+  /* No-Move: hide every block that does not contain an image or infobox */
+  .wiki-article--images-only p,
+  .wiki-article--images-only ul,
+  .wiki-article--images-only ol,
+  .wiki-article--images-only blockquote,
+  .wiki-article--images-only h1,
+  .wiki-article--images-only h2,
+  .wiki-article--images-only h3,
+  .wiki-article--images-only h4,
+  .wiki-article--images-only dl,
+  .wiki-article--images-only table.wikitable,
+  .wiki-article--images-only hr {
+    display: none !important;
+  }
+  .wiki-article--images-only .infobox,
+  .wiki-article--images-only figure,
+  .wiki-article--images-only .thumb {
+    float: none;
+    margin: 1em auto;
+    max-width: 420px;
+  }
+
   .ticker {
     font-variant-numeric: tabular-nums;
+  }
+
+  /* Floating "+N" score popup */
+  @keyframes score-pop {
+    0%   { opacity: 0; transform: translate(-50%, 0) scale(0.7); }
+    20%  { opacity: 1; transform: translate(-50%, -10px) scale(1.05); }
+    100% { opacity: 0; transform: translate(-50%, -60px) scale(0.95); }
+  }
+  .score-pop {
+    position: fixed;
+    left: 50%;
+    pointer-events: none;
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 800;
+    font-size: 2.25rem;
+    color: hsl(var(--primary));
+    text-shadow: 0 1px 0 hsl(var(--card)), 0 2px 16px hsl(var(--primary) / 0.4);
+    animation: score-pop 1100ms ease-out forwards;
+    z-index: 100;
   }
 }
