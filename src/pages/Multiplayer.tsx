@@ -70,6 +70,7 @@ const Multiplayer = () => {
   const [phase, setPhase] = useState<Phase>("lobby");
   const [mode, setMode] = useState<Mode>("quick");
   const [name, setName] = useState<string>(() => getPlayerName());
+  const [category, setCategory] = useState<string>("");
   const playerId = useMemo(() => getPlayerId(), []);
   const [error, setError] = useState<string | null>(null);
 
