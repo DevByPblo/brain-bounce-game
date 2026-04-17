@@ -432,6 +432,8 @@ const Multiplayer = () => {
       <Lobby
         name={name}
         setName={setName}
+        category={category}
+        setCategory={setCategory}
         onFind={findMatch}
         onCreateRoom={createRoom}
         onJoinRoom={joinRoom}
