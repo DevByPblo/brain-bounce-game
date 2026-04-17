@@ -30,7 +30,9 @@ import {
   Medal,
   Clock,
   MousePointerClick,
+  Swords,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 type Phase = "idle" | "loading" | "playing" | "won";
 
