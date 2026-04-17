@@ -887,8 +887,7 @@ const BriefingCard = ({
   </div>
 );
 
-
-  match,
+const Results = ({
   me,
   opponent,
   playerId,
