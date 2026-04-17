@@ -434,6 +434,8 @@ const IdleScreen = ({
   setMode,
   difficulty,
   setDifficulty,
+  customTarget,
+  setCustomTarget,
   onStart,
   loading,
   error,
@@ -442,6 +444,8 @@ const IdleScreen = ({
   setMode: (m: GameMode) => void;
   difficulty: Difficulty;
   setDifficulty: (d: Difficulty) => void;
+  customTarget: string;
+  setCustomTarget: (s: string) => void;
   onStart: () => void;
   loading: boolean;
   error: string | null;
@@ -460,7 +464,7 @@ const IdleScreen = ({
       <div className="hairline my-8 mx-auto w-24" />
 
       {/* Mode */}
-      <div className="grid sm:grid-cols-2 gap-3 mb-4 text-left">
+      <div className="grid sm:grid-cols-3 gap-3 mb-4 text-left">
         <ModeCard
           active={mode === "random"}
           onClick={() => setMode("random")}
@@ -475,12 +479,40 @@ const IdleScreen = ({
           title="Daily challenge"
           desc="Same start & target for everyone today."
         />
+        <ModeCard
+          active={mode === "custom"}
+          onClick={() => setMode("custom")}
+          icon={<Pencil className="w-4 h-4" />}
+          title="Custom target"
+          desc="Pick your own destination word."
+        />
       </div>
+
+      {/* Custom target input */}
+      {mode === "custom" && (
+        <div className="paper-card p-4 mb-4 text-left">
+          <label className="small-caps text-[10px] text-ink-faint block mb-2">
+            Target article
+          </label>
+          <Input
+            value={customTarget}
+            onChange={(e) => setCustomTarget(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && customTarget.trim()) onStart();
+            }}
+            placeholder="e.g. Octopus, Roman Empire, Quantum mechanics…"
+            className="serif"
+          />
+          <p className="text-[11px] text-ink-faint mt-2">
+            We'll find the matching Wikipedia article and drop you on a random page.
+          </p>
+        </div>
+      )}
 
       {/* Difficulty (only meaningful for random) */}
       <div
         className={`grid grid-cols-3 gap-3 mb-8 text-left transition-opacity ${
-          mode === "daily" ? "opacity-40 pointer-events-none" : ""
+          mode !== "random" ? "opacity-40 pointer-events-none" : ""
         }`}
       >
         {(["easy", "normal", "hard"] as Difficulty[]).map((d) => (
