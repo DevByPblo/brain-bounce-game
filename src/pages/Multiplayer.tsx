@@ -465,6 +465,8 @@ const Multiplayer = () => {
         setName={setName}
         category={category}
         setCategory={setCategory}
+        difficulty={difficulty}
+        setDifficulty={setDifficulty}
         disableHints={disableHints}
         setDisableHints={setDisableHints}
         onFind={findMatch}
@@ -684,6 +686,8 @@ const Lobby = ({
   setName,
   category,
   setCategory,
+  difficulty,
+  setDifficulty,
   disableHints,
   setDisableHints,
   onFind,
@@ -695,6 +699,8 @@ const Lobby = ({
   setName: (n: string) => void;
   category: string;
   setCategory: (c: string) => void;
+  difficulty: "easy" | "normal" | "hard";
+  setDifficulty: (d: "easy" | "normal" | "hard") => void;
   disableHints: boolean;
   setDisableHints: (v: boolean) => void;
   onFind: () => void;
