@@ -13,6 +13,8 @@ import {
   type WikiSummary,
 } from "@/lib/wiki";
 import { CATEGORIES, OTHER_CATEGORIES, POPULAR_CATEGORIES, getTitleForCategory } from "@/lib/categories";
+import { recordCategoryUse } from "@/lib/categoryStats";
+import { useFavoriteCategories } from "@/hooks/use-favorite-categories";
 import {
   addEntry,
   getLeaderboardView,
@@ -154,6 +156,7 @@ const Index = () => {
         while (normaliseTitle(s) === normaliseTitle(t) && guard++ < 4) {
           t = await pickTarget();
         }
+        if (category) recordCategoryUse(category);
       }
       const [sSum, tSum, art] = await Promise.all([
         getSummary(s),

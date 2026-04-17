@@ -29,6 +29,8 @@ import {
   type WikiSummary,
 } from "@/lib/wiki";
 import { CATEGORIES, OTHER_CATEGORIES, POPULAR_CATEGORIES, getTitleForCategory } from "@/lib/categories";
+import { recordCategoryUse } from "@/lib/categoryStats";
+import { useFavoriteCategories } from "@/hooks/use-favorite-categories";
 import { getPlayerId, getPlayerName, setPlayerName } from "@/lib/player";
 import {
   addBotToMatch,
@@ -285,6 +287,7 @@ const Multiplayer = () => {
     while (normaliseTitle(s) === normaliseTitle(t) && guard++ < 4) {
       t = await pickTarget();
     }
+    if (category) recordCategoryUse(category);
     return { start: s, target: t };
   }, [category]);
 
