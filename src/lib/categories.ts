@@ -216,6 +216,25 @@ export const CATEGORIES: CategoryDef[] = [
 
 export const CATEGORY_LABELS = CATEGORIES.map((c) => c.label);
 
+/** Hand-picked categories surfaced at the top of the dropdown — these are the
+ *  themes we expect most players to reach for first. */
+export const POPULAR_CATEGORY_LABELS = [
+  "People",
+  "Wars",
+  "Music",
+  "Food and Drink",
+  "Sports",
+  "Film and TV",
+] as const;
+
+export const POPULAR_CATEGORIES = POPULAR_CATEGORY_LABELS
+  .map((label) => CATEGORIES.find((c) => c.label === label))
+  .filter((c): c is CategoryDef => Boolean(c));
+
+export const OTHER_CATEGORIES = CATEGORIES
+  .filter((c) => !(POPULAR_CATEGORY_LABELS as readonly string[]).includes(c.label))
+  .sort((a, b) => a.label.localeCompare(b.label));
+
 const cache = new Map<string, string[]>();
 
 /** Pull a (cached) pool of decent article titles from a category's Wikipedia categories. */

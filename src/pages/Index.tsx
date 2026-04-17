@@ -12,7 +12,7 @@ import {
   resolveTitleFromQuery,
   type WikiSummary,
 } from "@/lib/wiki";
-import { CATEGORIES, getTitleForCategory } from "@/lib/categories";
+import { CATEGORIES, OTHER_CATEGORIES, POPULAR_CATEGORIES, getTitleForCategory } from "@/lib/categories";
 import {
   addEntry,
   getLeaderboardView,
@@ -595,9 +595,19 @@ const IdleScreen = ({
           onChange={(e) => setCategory(e.target.value)}
         >
           <option value="">Any Category</option>
-          {CATEGORIES.map((c) => (
-            <option key={c.label} value={c.label}>
-              {c.label}
+          <optgroup label="★ Popular">
+            {POPULAR_CATEGORIES.map((c) => (
+              <option key={c.label} value={c.label}>
+                {c.label}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="All categories">
+            {OTHER_CATEGORIES.map((c) => (
+              <option key={c.label} value={c.label}>
+                {c.label}</option>
+            ))}
+          </optgroup>
             </option>
           ))}
         </select>
