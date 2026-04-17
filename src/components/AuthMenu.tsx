@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AVATARS, getAvatar } from "@/lib/avatars";
+import { useRaceActive } from "@/hooks/use-race-active";
 import { toast } from "sonner";
 
 const ProviderBadge = ({ provider }: { provider: string | null }) => {
@@ -64,7 +65,7 @@ const AvatarChip = ({
 export const AuthMenu = () => {
   const { user, profile, loading, provider, signOut, updateProfile } = useAuth();
   const { pathname } = useLocation();
-
+  const raceActive = useRaceActive();
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState("");
   const [saving, setSaving] = useState(false);
@@ -79,6 +80,7 @@ export const AuthMenu = () => {
 
   if (pathname === "/auth") return null;
   if (loading) return null;
+  if (raceActive) return null;
 
   const isAnon = !user || user.is_anonymous === true;
 

@@ -52,6 +52,18 @@ import {
   type BotRunner,
 } from "@/lib/bot";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { setRaceActive } from "@/hooks/use-race-active";
 
 type Phase = "lobby" | "searching" | "room" | "briefing" | "racing" | "finished";
 type Mode = "quick" | "private";
@@ -235,6 +247,12 @@ const Multiplayer = () => {
     if (phase !== "racing") return;
     const id = setInterval(() => setElapsed(Date.now() - startedAtRef.current), 250);
     return () => clearInterval(id);
+  }, [phase]);
+
+  // ─── Track race-active state globally so chrome (e.g. AuthMenu) can hide ───
+  useEffect(() => {
+    setRaceActive(phase === "racing" || phase === "briefing");
+    return () => setRaceActive(false);
   }, [phase]);
 
   // ─── Pulse the opponent card whenever their current article changes ───
@@ -523,10 +541,28 @@ const Multiplayer = () => {
           </div>
           <div className="flex items-center gap-3 sm:gap-5 ticker">
             <Metric label="Time" value={formatTime(elapsed)} />
-            <Button variant="outline" size="sm" onClick={cancelSearch} className="h-8 px-2 sm:px-3">
-              <span className="hidden sm:inline">Forfeit</span>
-              <span className="sm:hidden">Quit</span>
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3">
+                  <span className="hidden sm:inline">Forfeit</span>
+                  <span className="sm:hidden">Quit</span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Forfeit this race?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Your opponent will be awarded the win. You can't rejoin this match.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Keep racing</AlertDialogCancel>
+                  <AlertDialogAction onClick={cancelSearch}>
+                    Yes, forfeit
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
 
