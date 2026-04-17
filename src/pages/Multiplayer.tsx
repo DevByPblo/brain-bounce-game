@@ -6,9 +6,14 @@ import { WikiArticle } from "@/components/WikiArticle";
 import {
   ArrowLeft,
   ArrowRight,
+  Bot,
+  Check,
   Clock,
+  Copy,
   Flag,
+  KeyRound,
   Loader2,
+  Lock,
   MousePointerClick,
   RotateCcw,
   Swords,
@@ -25,18 +30,30 @@ import {
 } from "@/lib/wiki";
 import { getPlayerId, getPlayerName, setPlayerName } from "@/lib/player";
 import {
+  addBotToMatch,
   cancelMatch,
+  createPrivateRoom,
   fetchMatch,
   fetchMatchPlayers,
   finishMatch,
+  joinPrivateRoom,
   joinQuickMatch,
   reportProgress,
   subscribeMatch,
   type MatchPlayerRow,
   type MatchRow,
 } from "@/lib/multiplayer";
+import {
+  difficultyFromHistory,
+  fetchPersonalBest,
+  randomBotName,
+  runBot,
+  type BotRunner,
+} from "@/lib/bot";
+import { toast } from "sonner";
 
-type Phase = "lobby" | "searching" | "racing" | "finished";
+type Phase = "lobby" | "searching" | "room" | "racing" | "finished";
+type Mode = "quick" | "private";
 
 const formatTime = (ms: number) => {
   const s = Math.floor(ms / 1000);
@@ -45,8 +62,12 @@ const formatTime = (ms: number) => {
   return `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
 };
 
+// If a quick match has no opponent within this window, drop in a bot.
+const BOT_FALLBACK_MS = 12_000;
+
 const Multiplayer = () => {
   const [phase, setPhase] = useState<Phase>("lobby");
+  const [mode, setMode] = useState<Mode>("quick");
   const [name, setName] = useState<string>(() => getPlayerName());
   const playerId = useMemo(() => getPlayerId(), []);
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +86,8 @@ const Multiplayer = () => {
   const [elapsed, setElapsed] = useState(0);
   const startedAtRef = useRef<number>(0);
   const finishedRef = useRef(false);
+  const botRunnerRef = useRef<BotRunner | null>(null);
+  const botFallbackRef = useRef<number | null>(null);
 
   const me = useMemo(
     () => players.find((p) => p.player_id === playerId) ?? null,
@@ -90,7 +113,6 @@ const Multiplayer = () => {
         });
       },
     });
-    // initial fetch (in case events fired before sub)
     void (async () => {
       const [m, ps] = await Promise.all([fetchMatch(matchId), fetchMatchPlayers(matchId)]);
       if (m) setMatch(m);
@@ -99,12 +121,34 @@ const Multiplayer = () => {
     return unsub;
   }, [matchId]);
 
+  // ─── Auto-fallback to a bot on quick match if nobody joins ───
+  useEffect(() => {
+    if (phase !== "searching" || mode !== "quick" || !matchId || !match) return;
+    if (match.status !== "waiting") return;
+    if (players.length >= 2) return;
+    // Schedule a bot fallback.
+    botFallbackRef.current = window.setTimeout(async () => {
+      try {
+        const botName = randomBotName();
+        await addBotToMatch({ matchId, playerId, botName: `🤖 ${botName}` });
+        toast.info("No challenger online — a bot is stepping in.");
+      } catch (e) {
+        console.error("bot fallback failed", e);
+      }
+    }, BOT_FALLBACK_MS);
+    return () => {
+      if (botFallbackRef.current) {
+        clearTimeout(botFallbackRef.current);
+        botFallbackRef.current = null;
+      }
+    };
+  }, [phase, mode, matchId, match, players.length, playerId]);
+
   // ─── React to match status changes ───
   useEffect(() => {
     if (!match) return;
 
-    if (match.status === "playing" && phase === "searching") {
-      // Load articles, switch to racing.
+    if (match.status === "playing" && (phase === "searching" || phase === "room")) {
       void (async () => {
         try {
           const [sSum, tSum, art] = await Promise.all([
@@ -133,6 +177,37 @@ const Multiplayer = () => {
     }
   }, [match, phase]);
 
+  // ─── Drive the bot when one is in the match ───
+  useEffect(() => {
+    if (phase !== "racing" || !match || !matchId) return;
+    const bot = players.find((p) => p.is_bot);
+    if (!bot || botRunnerRef.current) return;
+    void (async () => {
+      const best = await fetchPersonalBest(name);
+      const difficulty = difficultyFromHistory(best);
+      botRunnerRef.current = runBot({
+        matchId,
+        botPlayerId: bot.player_id,
+        start: match.start_title!,
+        target: match.target_title!,
+        difficulty,
+        startedAt: startedAtRef.current,
+      });
+    })();
+    return () => {
+      botRunnerRef.current?.stop();
+      botRunnerRef.current = null;
+    };
+  }, [phase, match, matchId, players, name]);
+
+  // Stop bot when match finishes/leaves.
+  useEffect(() => {
+    if (phase === "finished" || phase === "lobby") {
+      botRunnerRef.current?.stop();
+      botRunnerRef.current = null;
+    }
+  }, [phase]);
+
   // ─── Tick timer ───
   useEffect(() => {
     if (phase !== "racing") return;
@@ -145,23 +220,29 @@ const Multiplayer = () => {
     setPlayerName(name);
   }, [name]);
 
-  // ─── Find a match ───
+  // ─── Pick a random start/target pair ───
+  const pickPair = useCallback(async () => {
+    let s = await getRandomTitle();
+    let t = await getRandomTitle();
+    let guard = 0;
+    while (normaliseTitle(s) === normaliseTitle(t) && guard++ < 4) {
+      t = await getRandomTitle();
+    }
+    return { start: s, target: t };
+  }, []);
+
+  // ─── Find a quick match ───
   const findMatch = useCallback(async () => {
     setError(null);
+    setMode("quick");
     setPhase("searching");
     try {
-      // Pre-fetch a candidate pair in case we're the host.
-      let s = await getRandomTitle();
-      let t = await getRandomTitle();
-      let guard = 0;
-      while (normaliseTitle(s) === normaliseTitle(t) && guard++ < 4) {
-        t = await getRandomTitle();
-      }
+      const { start, target } = await pickPair();
       const id = await joinQuickMatch({
         playerId,
         displayName: name.trim() || "Anonymous",
-        start: s,
-        target: t,
+        start,
+        target,
       });
       setMatchId(id);
     } catch (e) {
@@ -169,9 +250,69 @@ const Multiplayer = () => {
       setError("Couldn't reach the matchmaker. Please try again.");
       setPhase("lobby");
     }
-  }, [name, playerId]);
+  }, [name, playerId, pickPair]);
 
-  // ─── Cancel search ───
+  // ─── Create a private room ───
+  const createRoom = useCallback(async () => {
+    setError(null);
+    setMode("private");
+    setPhase("searching");
+    try {
+      const { start, target } = await pickPair();
+      const { matchId: id } = await createPrivateRoom({
+        playerId,
+        displayName: name.trim() || "Anonymous",
+        start,
+        target,
+      });
+      setMatchId(id);
+      setPhase("room");
+    } catch (e) {
+      console.error(e);
+      setError("Couldn't create the room. Please try again.");
+      setPhase("lobby");
+    }
+  }, [name, playerId, pickPair]);
+
+  // ─── Join a private room by code ───
+  const joinRoom = useCallback(
+    async (code: string) => {
+      setError(null);
+      setMode("private");
+      setPhase("searching");
+      try {
+        const id = await joinPrivateRoom({
+          playerId,
+          displayName: name.trim() || "Anonymous",
+          code,
+        });
+        setMatchId(id);
+      } catch (e) {
+        console.error(e);
+        const msg =
+          (e as { message?: string })?.message ?? "Couldn't join that room.";
+        setError(msg.includes("not found") ? "Room not found or already finished." : msg);
+        setPhase("lobby");
+      }
+    },
+    [name, playerId]
+  );
+
+  const addBotNow = useCallback(async () => {
+    if (!matchId) return;
+    try {
+      await addBotToMatch({
+        matchId,
+        playerId,
+        botName: `🤖 ${randomBotName()}`,
+      });
+    } catch (e) {
+      console.error(e);
+      toast.error("Couldn't add a bot.");
+    }
+  }, [matchId, playerId]);
+
+  // ─── Cancel ───
   const cancelSearch = useCallback(async () => {
     if (matchId) {
       try {
@@ -180,13 +321,15 @@ const Multiplayer = () => {
         /* ignore */
       }
     }
+    botRunnerRef.current?.stop();
+    botRunnerRef.current = null;
     setMatchId(null);
     setMatch(null);
     setPlayers([]);
     setPhase("lobby");
   }, [matchId, playerId]);
 
-  // ─── Navigate to a linked article ───
+  // ─── Navigate ───
   const navigate = useCallback(
     async (title: string) => {
       if (!matchId || !match?.target_title || finishedRef.current) return;
@@ -199,7 +342,6 @@ const Multiplayer = () => {
         setArticleHtml(art.html);
         setPath(newPath);
 
-        // Push progress to server (fire & forget).
         void reportProgress({
           matchId,
           playerId,
@@ -227,8 +369,9 @@ const Multiplayer = () => {
     [matchId, match, clicks, path, playerId]
   );
 
-  // ─── Reset to lobby ───
   const playAgain = useCallback(() => {
+    botRunnerRef.current?.stop();
+    botRunnerRef.current = null;
     setMatchId(null);
     setMatch(null);
     setPlayers([]);
@@ -251,13 +394,31 @@ const Multiplayer = () => {
         name={name}
         setName={setName}
         onFind={findMatch}
+        onCreateRoom={createRoom}
+        onJoinRoom={joinRoom}
         error={error}
       />
     );
   }
 
   if (phase === "searching") {
-    return <Searching onCancel={cancelSearch} />;
+    return (
+      <Searching
+        mode={mode}
+        onCancel={cancelSearch}
+        onAddBot={mode === "quick" ? addBotNow : undefined}
+      />
+    );
+  }
+
+  if (phase === "room" && match?.room_code) {
+    return (
+      <RoomWaiting
+        code={match.room_code}
+        onCancel={cancelSearch}
+        onAddBot={addBotNow}
+      />
+    );
   }
 
   if (phase === "finished") {
@@ -297,7 +458,6 @@ const Multiplayer = () => {
           </div>
         </div>
 
-        {/* Players rail */}
         <div className="max-w-6xl mx-auto px-6 pb-3 grid grid-cols-1 md:grid-cols-2 gap-3">
           <PlayerCard
             label="You"
@@ -308,15 +468,15 @@ const Multiplayer = () => {
             self
           />
           <PlayerCard
-            label="Opponent"
+            label={opponent?.is_bot ? "Bot" : "Opponent"}
             name={opponent?.display_name ?? "Waiting…"}
             clicks={opponentClicks}
-            currentTitle={null /* hidden until finish */}
+            currentTitle={null}
             finished={opponentFinished}
+            isBot={opponent?.is_bot}
           />
         </div>
 
-        {/* Start → Target rail */}
         <div className="max-w-6xl mx-auto px-6 pb-4">
           <div className="paper-card flex items-stretch overflow-hidden">
             <RailEnd
@@ -339,7 +499,6 @@ const Multiplayer = () => {
         </div>
       </header>
 
-      {/* Article */}
       <div className="flex-1 max-w-6xl w-full mx-auto px-6 py-6 min-h-0">
         <article className="paper-card overflow-hidden min-h-[60vh] flex flex-col">
           <div className="px-8 pt-6 pb-3 border-b border-rule flex items-baseline justify-between gap-3">
@@ -366,77 +525,204 @@ const Lobby = ({
   name,
   setName,
   onFind,
+  onCreateRoom,
+  onJoinRoom,
   error,
 }: {
   name: string;
   setName: (n: string) => void;
   onFind: () => void;
+  onCreateRoom: () => void;
+  onJoinRoom: (code: string) => void;
   error: string | null;
-}) => (
-  <main className="relative z-10 min-h-screen flex items-center justify-center px-6 py-16">
-    <div className="max-w-xl w-full text-center">
-      <Link
-        to="/"
-        className="inline-flex items-center gap-1.5 small-caps text-xs text-ink-soft hover:text-primary mb-8"
-      >
-        <ArrowLeft className="w-3 h-3" /> Back to single player
-      </Link>
-      <div className="small-caps text-xs text-ink-soft mb-6">
-        Vol. I · No. 2 · A live editorial duel
-      </div>
-      <h1 className="serif text-5xl md:text-6xl font-extrabold tracking-tight mb-3">
-        Race a <span className="italic text-primary">stranger</span>.
-      </h1>
-      <p className="serif italic text-lg text-muted-foreground mb-8">
-        Two readers. One target. First to arrive wins.
-      </p>
-      <div className="hairline my-6 mx-auto w-24" />
+}) => {
+  const [code, setCode] = useState("");
+  return (
+    <main className="relative z-10 min-h-screen flex items-center justify-center px-6 py-16">
+      <div className="max-w-xl w-full text-center">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1.5 small-caps text-xs text-ink-soft hover:text-primary mb-8"
+        >
+          <ArrowLeft className="w-3 h-3" /> Back to single player
+        </Link>
+        <div className="small-caps text-xs text-ink-soft mb-6">
+          Vol. I · No. 2 · A live editorial duel
+        </div>
+        <h1 className="serif text-5xl md:text-6xl font-extrabold tracking-tight mb-3">
+          Race a <span className="italic text-primary">stranger</span>.
+        </h1>
+        <p className="serif italic text-lg text-muted-foreground mb-8">
+          Two readers. One target. First to arrive wins.
+        </p>
+        <div className="hairline my-6 mx-auto w-24" />
 
-      <div className="paper-card p-6 text-left mb-6">
-        <label className="small-caps text-[10px] text-ink-faint mb-2 block">
-          Your byline
-        </label>
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Anonymous"
-          maxLength={32}
-          className="serif text-lg"
-        />
-        <p className="text-[11px] text-ink-faint mt-2">
-          This is shown to your opponent during the race.
+        <div className="paper-card p-6 text-left mb-6">
+          <label className="small-caps text-[10px] text-ink-faint mb-2 block">
+            Your byline
+          </label>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Anonymous"
+            maxLength={32}
+            className="serif text-lg"
+          />
+          <p className="text-[11px] text-ink-faint mt-2">
+            This is shown to your opponent during the race.
+          </p>
+        </div>
+
+        {error && <p className="text-destructive text-sm mb-4">{error}</p>}
+
+        <div className="grid sm:grid-cols-2 gap-3 mb-6">
+          <Button size="lg" onClick={onFind} className="py-6 text-base">
+            <Swords className="w-4 h-4 mr-2" /> Quick match
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            onClick={onCreateRoom}
+            className="py-6 text-base"
+          >
+            <Lock className="w-4 h-4 mr-2" /> Private room
+          </Button>
+        </div>
+
+        <div className="paper-card p-5 text-left">
+          <label className="small-caps text-[10px] text-ink-faint mb-2 flex items-center gap-1.5">
+            <KeyRound className="w-3 h-3" /> Have an invite code?
+          </label>
+          <div className="flex gap-2">
+            <Input
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              placeholder="ABC123"
+              maxLength={6}
+              className="serif text-lg tracking-widest uppercase"
+            />
+            <Button
+              onClick={() => code.trim() && onJoinRoom(code.trim())}
+              disabled={code.trim().length < 4}
+            >
+              Join
+            </Button>
+          </div>
+          <p className="text-[11px] text-ink-faint mt-2">
+            Friends share their 6-character room code to race together.
+          </p>
+        </div>
+
+        <p className="text-[11px] text-ink-faint mt-6">
+          No challenger online? A skill-matched bot will step in after a few seconds.
         </p>
       </div>
+    </main>
+  );
+};
 
-      {error && <p className="text-destructive text-sm mb-4">{error}</p>}
-
-      <Button size="lg" onClick={onFind} className="px-10 py-6 text-base">
-        <Swords className="w-4 h-4 mr-2" /> Find an opponent
-      </Button>
-
-      <p className="text-[11px] text-ink-faint mt-6">
-        You'll be paired with anyone else searching. Both racers start from the
-        same article and chase the same target.
-      </p>
-    </div>
-  </main>
-);
-
-const Searching = ({ onCancel }: { onCancel: () => void }) => (
+const Searching = ({
+  mode,
+  onCancel,
+  onAddBot,
+}: {
+  mode: Mode;
+  onCancel: () => void;
+  onAddBot?: () => void;
+}) => (
   <main className="relative z-10 min-h-screen flex items-center justify-center px-6 py-16">
     <div className="max-w-md w-full text-center paper-card p-10">
       <Loader2 className="w-8 h-8 mx-auto text-primary animate-spin mb-5" />
-      <div className="small-caps text-xs text-ink-soft mb-2">Awaiting a challenger</div>
-      <h2 className="serif text-3xl font-extrabold mb-3">Searching the lobby…</h2>
+      <div className="small-caps text-xs text-ink-soft mb-2">
+        {mode === "quick" ? "Awaiting a challenger" : "Joining room"}
+      </div>
+      <h2 className="serif text-3xl font-extrabold mb-3">
+        {mode === "quick" ? "Searching the lobby…" : "One moment…"}
+      </h2>
       <p className="text-sm text-ink-soft mb-6">
-        Open this page in another tab or share the link to race a friend.
+        {mode === "quick"
+          ? "If nobody shows up in a few seconds, a bot will step in."
+          : "Connecting you to the room."}
       </p>
-      <Button variant="outline" onClick={onCancel}>
-        Cancel
-      </Button>
+      <div className="flex justify-center gap-2">
+        {onAddBot && (
+          <Button variant="secondary" onClick={onAddBot}>
+            <Bot className="w-4 h-4 mr-2" /> Race a bot now
+          </Button>
+        )}
+        <Button variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
     </div>
   </main>
 );
+
+const RoomWaiting = ({
+  code,
+  onCancel,
+  onAddBot,
+}: {
+  code: string;
+  onCancel: () => void;
+  onAddBot: () => void;
+}) => {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      toast.success("Room code copied");
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* ignore */
+    }
+  };
+  return (
+    <main className="relative z-10 min-h-screen flex items-center justify-center px-6 py-16">
+      <div className="max-w-md w-full text-center paper-card p-10">
+        <Lock className="w-7 h-7 mx-auto text-primary mb-4" />
+        <div className="small-caps text-xs text-ink-soft mb-2">Private room</div>
+        <h2 className="serif text-3xl font-extrabold mb-2">Share your code</h2>
+        <p className="text-sm text-ink-soft mb-6">
+          Send this code to a friend. They enter it from the multiplayer page.
+        </p>
+
+        <button
+          onClick={copy}
+          className="group block w-full paper-card p-6 mb-5 hover:border-primary transition"
+        >
+          <div className="mono text-5xl font-extrabold tracking-[0.4em] text-primary">
+            {code}
+          </div>
+          <div className="mt-3 inline-flex items-center gap-1.5 small-caps text-[10px] text-ink-faint group-hover:text-primary">
+            {copied ? (
+              <>
+                <Check className="w-3 h-3" /> Copied
+              </>
+            ) : (
+              <>
+                <Copy className="w-3 h-3" /> Click to copy
+              </>
+            )}
+          </div>
+        </button>
+
+        <div className="flex justify-center gap-2 flex-wrap">
+          <Button variant="secondary" onClick={onAddBot}>
+            <Bot className="w-4 h-4 mr-2" /> Add a bot
+          </Button>
+          <Button variant="outline" onClick={onCancel}>
+            Close room
+          </Button>
+        </div>
+        <p className="text-[11px] text-ink-faint mt-6">
+          Waiting for your friend to join…
+        </p>
+      </div>
+    </main>
+  );
+};
 
 const Results = ({
   match,
@@ -512,7 +798,10 @@ const PlayerResult = ({
 }) => (
   <div className={`paper-card p-5 ${winner ? "ring-2 ring-primary" : ""}`}>
     <div className="flex items-center justify-between mb-3">
-      <div className="serif font-bold truncate">{title}</div>
+      <div className="serif font-bold truncate flex items-center gap-2">
+        {player?.is_bot && <Bot className="w-3.5 h-3.5 text-ink-faint" />}
+        {title}
+      </div>
       {winner && (
         <span className="small-caps text-[10px] text-primary">Winner</span>
       )}
@@ -585,6 +874,7 @@ const PlayerCard = ({
   currentTitle,
   finished,
   self,
+  isBot,
 }: {
   label: string;
   name: string;
@@ -592,6 +882,7 @@ const PlayerCard = ({
   currentTitle: string | null;
   finished: boolean;
   self?: boolean;
+  isBot?: boolean;
 }) => (
   <div
     className={`paper-card p-3 flex items-center justify-between gap-3 ${
@@ -600,7 +891,11 @@ const PlayerCard = ({
   >
     <div className="min-w-0">
       <div className="flex items-center gap-1.5 mb-0.5">
-        <Users className="w-3 h-3 text-ink-faint" />
+        {isBot ? (
+          <Bot className="w-3 h-3 text-ink-faint" />
+        ) : (
+          <Users className="w-3 h-3 text-ink-faint" />
+        )}
         <span className="small-caps text-[10px] text-ink-faint">{label}</span>
         {finished && (
           <span className="small-caps text-[10px] text-primary">· finished</span>

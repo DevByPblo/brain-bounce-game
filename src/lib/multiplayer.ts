@@ -12,6 +12,8 @@ export type MatchRow = {
   started_at: string | null;
   finished_at: string | null;
   winner_player_id: string | null;
+  room_code: string | null;
+  is_private: boolean;
 };
 
 export type MatchPlayerRow = {
@@ -25,6 +27,7 @@ export type MatchPlayerRow = {
   finished_at: string | null;
   time_ms: number | null;
   joined_at: string;
+  is_bot: boolean;
 };
 
 export async function joinQuickMatch(args: {
@@ -38,6 +41,51 @@ export async function joinQuickMatch(args: {
     p_display_name: args.displayName,
     p_start: args.start,
     p_target: args.target,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function createPrivateRoom(args: {
+  playerId: string;
+  displayName: string;
+  start: string;
+  target: string;
+}): Promise<{ matchId: string; roomCode: string }> {
+  const { data, error } = await supabase.rpc("create_private_room", {
+    p_player_id: args.playerId,
+    p_display_name: args.displayName,
+    p_start: args.start,
+    p_target: args.target,
+  });
+  if (error) throw error;
+  const row = (data as Array<{ match_id: string; room_code: string }>)[0];
+  return { matchId: row.match_id, roomCode: row.room_code };
+}
+
+export async function joinPrivateRoom(args: {
+  playerId: string;
+  displayName: string;
+  code: string;
+}): Promise<string> {
+  const { data, error } = await supabase.rpc("join_private_room", {
+    p_player_id: args.playerId,
+    p_display_name: args.displayName,
+    p_code: args.code.trim().toUpperCase(),
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function addBotToMatch(args: {
+  matchId: string;
+  playerId: string;
+  botName: string;
+}): Promise<string> {
+  const { data, error } = await supabase.rpc("add_bot_to_match", {
+    p_match_id: args.matchId,
+    p_player_id: args.playerId,
+    p_bot_name: args.botName,
   });
   if (error) throw error;
   return data as string;
