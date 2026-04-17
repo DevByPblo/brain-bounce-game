@@ -770,4 +770,151 @@ const RailEnd = ({
   </div>
 );
 
+const WonScreen = ({
+  clicks,
+  elapsed,
+  undos,
+  score,
+  path,
+  target,
+  mode,
+  onPlayAgain,
+  onChangeSettings,
+}: {
+  clicks: number;
+  elapsed: number;
+  undos: number;
+  score: number;
+  path: { title: string; html: string }[];
+  target: WikiSummary | null;
+  mode: GameMode;
+  onPlayAgain: () => void;
+  onChangeSettings: () => void;
+}) => {
+  const [copied, setCopied] = useState(false);
+
+  // Build a /?target=... share link if this run had a meaningful target.
+  const shareUrl = (() => {
+    if (!target?.title) return null;
+    const url = new URL(window.location.origin);
+    url.searchParams.set("target", target.title);
+    return url.toString();
+  })();
+
+  const shareLabel =
+    mode === "custom"
+      ? "Challenge a friend to this target"
+      : "Share this target with a friend";
+
+  const onShare = async () => {
+    if (!shareUrl) return;
+    const shareData = {
+      title: "WikiRace",
+      text: `Race me to “${target?.title}” on WikiRace!`,
+      url: shareUrl,
+    };
+    try {
+      // Use native share sheet on mobile if available.
+      if (
+        typeof navigator !== "undefined" &&
+        typeof navigator.share === "function" &&
+        // Avoid sharing only-text on desktop where it's flaky.
+        /Mobi|Android|iPhone|iPad/.test(navigator.userAgent)
+      ) {
+        await navigator.share(shareData);
+        return;
+      }
+    } catch {
+      /* fall through to clipboard */
+    }
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      toast.success("Link copied — share it with a friend!");
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      toast.error("Couldn't copy the link.");
+    }
+  };
+
+  return (
+    <main className="relative z-10 min-h-screen flex items-center justify-center px-4 sm:px-6 py-10 sm:py-16">
+      <div className="max-w-3xl w-full grid gap-4 sm:gap-6">
+        <div className="paper-card p-6 sm:p-10 text-center">
+          <Trophy className="w-10 h-10 mx-auto text-primary mb-4" />
+          <div className="small-caps text-xs text-ink-soft mb-2">Final dispatch</div>
+          <h2 className="serif text-3xl sm:text-4xl font-extrabold mb-6">You arrived.</h2>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-6 sm:mb-8">
+            <Stat label="Clicks" value={String(clicks)} />
+            <Stat label="Time" value={formatTime(elapsed)} />
+            <Stat label="Undos" value={String(undos)} />
+            <Stat label="Score" value={score.toLocaleString()} accent />
+          </div>
+
+          <div className="hairline mb-6" />
+          <div className="text-left">
+            <div className="small-caps text-xs text-ink-soft mb-2">Your path</div>
+            <ol className="serif text-sm space-y-1 max-h-[40vh] overflow-y-auto">
+              {path.map((p, i) => (
+                <li key={i} className="flex gap-2">
+                  <span className="mono text-xs text-ink-faint w-6 shrink-0">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span
+                    className={`break-words ${
+                      i === path.length - 1 ? "text-primary font-semibold" : ""
+                    }`}
+                  >
+                    {p.title}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          {shareUrl && (
+            <div className="paper-card p-3 sm:p-4 mt-6 sm:mt-8 text-left flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="small-caps text-[10px] text-ink-faint mb-0.5">
+                  {shareLabel}
+                </div>
+                <div className="mono text-xs text-ink-soft truncate">
+                  {shareUrl.replace(/^https?:\/\//, "")}
+                </div>
+              </div>
+              <Button
+                variant="secondary"
+                onClick={onShare}
+                className="w-full sm:w-auto shrink-0"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-4 h-4 mr-2" /> Copied
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="w-4 h-4 mr-2" /> Share link
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-6 sm:mt-8 justify-center">
+            <Button onClick={onPlayAgain} size="lg">
+              <RotateCcw className="w-4 h-4 mr-2" /> Race again
+            </Button>
+            <Button variant="outline" size="lg" onClick={onChangeSettings}>
+              Change settings
+            </Button>
+          </div>
+        </div>
+
+        <Leaderboard />
+      </div>
+    </main>
+  );
+};
+
 export default Index;
