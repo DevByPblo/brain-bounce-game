@@ -197,9 +197,11 @@ const Multiplayer = () => {
     if (phase !== "racing" || !matchId || !botPlayerId) return;
     if (!startTitle || !targetTitle) return;
     if (botRunnerRef.current) return;
+    console.log("[bot] starting runner", { botPlayerId, startTitle, targetTitle });
     void (async () => {
       const best = await fetchPersonalBest(name);
       const difficulty = difficultyFromHistory(best);
+      console.log("[bot] difficulty", difficulty);
       botRunnerRef.current = runBot({
         matchId,
         botPlayerId,
@@ -210,6 +212,7 @@ const Multiplayer = () => {
       });
     })();
     return () => {
+      console.log("[bot] stopping runner (effect cleanup)");
       botRunnerRef.current?.stop();
       botRunnerRef.current = null;
     };
