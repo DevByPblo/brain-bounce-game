@@ -42,7 +42,7 @@ import {
   Pencil,
   Share2,
   Check,
-} from "lucide-react";
+  Lightbulb,
 import { Link, useSearchParams } from "react-router-dom";
 import {
   AlertDialog,
@@ -56,6 +56,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { setRaceActive } from "@/hooks/use-race-active";
+import { HintCard, HINT_COSTS } from "@/components/HintCard";
 
 type Phase = "idle" | "loading" | "playing" | "won";
 
