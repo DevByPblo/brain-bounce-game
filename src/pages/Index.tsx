@@ -358,7 +358,7 @@ const Index = () => {
               title={
                 hintsUsed >= 3
                   ? "All hints used"
-                  : `Reveal a hint (−${HINT_COSTS[hintsUsed].toLocaleString()} pts)`
+                  : `Reveal a hint (−${HINT_COSTS[hintsUsed]?.toLocaleString() ?? ""} pts)`
               }
             >
               <Lightbulb className="w-3.5 h-3.5 sm:mr-1.5" />
