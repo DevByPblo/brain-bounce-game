@@ -603,6 +603,15 @@ const IdleScreen = ({
           onChange={(e) => setCategory(e.target.value)}
         >
           <option value="">Any Category</option>
+          {favoriteDefs.length > 0 && (
+            <optgroup label="★ Your favorites">
+              {favoriteDefs.map((c) => (
+                <option key={`fav-${c.label}`} value={c.label}>
+                  {c.label}
+                </option>
+              ))}
+            </optgroup>
+          )}
           <optgroup label="★ Popular">
             {POPULAR_CATEGORIES.map((c) => (
               <option key={c.label} value={c.label}>
