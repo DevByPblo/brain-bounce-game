@@ -121,10 +121,12 @@ export function runBot(args: {
     let current = args.start;
     const path: string[] = [args.start];
     let hops = 0;
+    console.log("[bot] tick start", { current, target: args.target });
 
     while (!stopped && hops < args.difficulty.maxHops) {
       // Reached target?
       if (normaliseTitle(current) === normaliseTitle(args.target)) {
+        console.log("[bot] reached target");
         await supabase.rpc("finish_match", {
           p_match_id: args.matchId,
           p_player_id: args.botPlayerId,
@@ -137,7 +139,7 @@ export function runBot(args: {
 
       // Wait between hops.
       await new Promise((r) => setTimeout(r, args.difficulty.hopDelayMs));
-      if (stopped) return;
+      if (stopped) { console.log("[bot] stopped during wait"); return; }
 
       let next: string | null = null;
       try {
@@ -145,7 +147,8 @@ export function runBot(args: {
         const links = extractLinks(art.html).filter(
           (l) => !path.some((p) => normaliseTitle(p) === normaliseTitle(l))
         );
-        if (!links.length) return;
+        console.log("[bot] fetched", current, "links:", links.length);
+        if (!links.length) { console.log("[bot] no links, giving up"); return; }
 
         // Direct hit?
         const direct = links.find(
@@ -154,19 +157,17 @@ export function runBot(args: {
         if (direct) {
           next = direct;
         } else if (Math.random() < args.difficulty.smartness) {
-          // Smart pick: best-scoring link.
           const ranked = [...links]
             .map((l) => ({ l, s: scoreLink(l, args.target) }))
             .sort((a, b) => b.s - a.s);
-          // Among top 5, pick randomly to avoid being too deterministic.
           const top = ranked.slice(0, 5);
           next = top[Math.floor(Math.random() * top.length)].l;
         } else {
-          // Random pick from first 50 links.
           const pool = links.slice(0, 50);
           next = pool[Math.floor(Math.random() * pool.length)];
         }
-      } catch {
+      } catch (e) {
+        console.log("[bot] fetch error", e);
         return;
       }
 
@@ -174,8 +175,8 @@ export function runBot(args: {
       hops += 1;
       path.push(next);
       current = next;
+      console.log("[bot] hop", hops, "→", next);
 
-      // Push progress (fire & forget).
       void supabase.rpc("report_progress", {
         p_match_id: args.matchId,
         p_player_id: args.botPlayerId,

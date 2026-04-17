@@ -184,27 +184,39 @@ const Multiplayer = () => {
   }, [articleHtml, startSummary, targetSummary]);
 
   // ─── Drive the bot when one is in the match ───
+  // IMPORTANT: depend on stable identifiers only. Depending on `players` or the
+  // full `match` row causes this effect to re-run on every realtime tick and
+  // restart the bot before it can take a single hop.
+  const botPlayerId = useMemo(
+    () => players.find((p) => p.is_bot)?.player_id ?? null,
+    [players]
+  );
+  const startTitle = match?.start_title ?? null;
+  const targetTitle = match?.target_title ?? null;
   useEffect(() => {
-    if (phase !== "racing" || !match || !matchId) return;
-    const bot = players.find((p) => p.is_bot);
-    if (!bot || botRunnerRef.current) return;
+    if (phase !== "racing" || !matchId || !botPlayerId) return;
+    if (!startTitle || !targetTitle) return;
+    if (botRunnerRef.current) return;
+    console.log("[bot] starting runner", { botPlayerId, startTitle, targetTitle });
     void (async () => {
       const best = await fetchPersonalBest(name);
       const difficulty = difficultyFromHistory(best);
+      console.log("[bot] difficulty", difficulty);
       botRunnerRef.current = runBot({
         matchId,
-        botPlayerId: bot.player_id,
-        start: match.start_title!,
-        target: match.target_title!,
+        botPlayerId,
+        start: startTitle,
+        target: targetTitle,
         difficulty,
         startedAt: startedAtRef.current,
       });
     })();
     return () => {
+      console.log("[bot] stopping runner (effect cleanup)");
       botRunnerRef.current?.stop();
       botRunnerRef.current = null;
     };
-  }, [phase, match, matchId, players, name]);
+  }, [phase, matchId, botPlayerId, startTitle, targetTitle, name]);
 
   // Stop bot when match finishes/leaves.
   useEffect(() => {
