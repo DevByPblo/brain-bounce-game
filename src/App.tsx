@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/lib/auth";
 import { ScorePopHost } from "@/components/ScorePop";
+import { AuthMenu } from "@/components/AuthMenu";
 import Index from "./pages/Index.tsx";
 import Multiplayer from "./pages/Multiplayer.tsx";
 import Auth from "./pages/Auth.tsx";
@@ -34,6 +35,7 @@ const App = () => (
         <AuthProvider>
           <ScrollToTop />
           <ScorePopHost />
+          <AuthMenu />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/multiplayer" element={<Multiplayer />} />
