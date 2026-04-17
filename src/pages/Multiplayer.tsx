@@ -257,16 +257,18 @@ const Multiplayer = () => {
     setPlayerName(name);
   }, [name]);
 
-  // ─── Pick a random start/target pair ───
+  // ─── Pick a random start/target pair (target may be category-constrained) ───
   const pickPair = useCallback(async () => {
-    let s = await getRandomTitle();
-    let t = await getRandomTitle();
+    const s = await getRandomTitle();
+    const pickTarget = () =>
+      category ? getTitleForCategory(category) : getRandomTitle();
+    let t = await pickTarget();
     let guard = 0;
     while (normaliseTitle(s) === normaliseTitle(t) && guard++ < 4) {
-      t = await getRandomTitle();
+      t = await pickTarget();
     }
     return { start: s, target: t };
-  }, []);
+  }, [category]);
 
   // ─── Find a quick match ───
   const findMatch = useCallback(async () => {
