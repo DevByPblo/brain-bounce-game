@@ -22,6 +22,8 @@ import {
 } from "@/lib/wiki";
 import { submitScore } from "@/lib/onlineScores";
 import { useAuth } from "@/lib/auth";
+import { recordRun } from "@/lib/achievements";
+import { celebrateBadges } from "@/lib/achievementToast";
 import { toast } from "sonner";
 
 type Phase = "idle" | "loading" | "playing" | "done";

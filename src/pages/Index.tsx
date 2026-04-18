@@ -58,6 +58,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { setRaceActive } from "@/hooks/use-race-active";
 import { HintCard, HINT_COSTS } from "@/components/HintCard";
+import { recordRun } from "@/lib/achievements";
+import { celebrateBadges } from "@/lib/achievementToast";
 
 type Phase = "idle" | "loading" | "playing" | "won";
 
@@ -255,11 +257,25 @@ const Index = () => {
           })();
         }
       }
+
+      // Local achievements: record run + toast any newly unlocked badges.
+      const earned = recordRun({
+        mode:
+          mode === "daily" ? "race-daily" :
+          mode === "custom" ? "race-custom" : "race-random",
+        won: true,
+        clicks: finalClicks,
+        timeMs: finalElapsed,
+        hintsUsed,
+        undos: finalUndos,
+      });
+      if (earned.length) celebrateBadges(earned);
+
       setElapsed(finalElapsed);
       setPath(finalPath);
       setPhase("won");
     },
-    [difficulty, mode, start, target, hintCost]
+    [difficulty, mode, start, target, hintCost, hintsUsed]
   );
 
   const navigate = useCallback(
