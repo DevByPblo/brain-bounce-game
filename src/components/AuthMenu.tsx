@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Check, LogIn, LogOut, Pencil, User as UserIcon } from "lucide-react";
+import { Check, LogIn, LogOut, Pencil, Trophy, User as UserIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
