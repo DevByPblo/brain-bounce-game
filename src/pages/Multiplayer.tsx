@@ -68,6 +68,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { setRaceActive } from "@/hooks/use-race-active";
 import { HintCard } from "@/components/HintCard";
+import { recordRun } from "@/lib/achievements";
+import { celebrateBadges } from "@/lib/achievementToast";
 
 type Phase = "lobby" | "searching" | "room" | "briefing" | "racing" | "finished";
 type Mode = "quick" | "private";
