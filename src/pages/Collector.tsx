@@ -76,6 +76,18 @@ const Collector = () => {
     if (submittedRef.current) return;
     submittedRef.current = true;
     setPhase("done");
+
+    // Achievements: a finished round counts as a "win".
+    const earned = recordRun({
+      mode: "collector",
+      won: reached.length > 0,
+      clicks,
+      timeMs: ROUND_MS,
+      hintsUsed: 0,
+      undos: 0,
+    });
+    if (earned.length) celebrateBadges(earned);
+
     if (user) {
       const res = await submitScore({
         mode: "collector",

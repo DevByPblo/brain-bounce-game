@@ -94,6 +94,17 @@ const NoMove = () => {
     const finalScore = Math.max(50, BASE - finalClicks * HOP_PENALTY - Math.floor(finalElapsed / 1000) * 4);
     setElapsed(finalElapsed);
     setPhase("won");
+
+    const earned = recordRun({
+      mode: "nomove",
+      won: true,
+      clicks: finalClicks,
+      timeMs: finalElapsed,
+      hintsUsed: 0,
+      undos: 0,
+    });
+    if (earned.length) celebrateBadges(earned);
+
     if (user) {
       const res = await submitScore({
         mode: "nomove",
