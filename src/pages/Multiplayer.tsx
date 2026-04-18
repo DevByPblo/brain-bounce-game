@@ -369,15 +369,19 @@ const Multiplayer = () => {
 
   const addBotNow = useCallback(async () => {
     if (!matchId) return;
+    // If a bot (or anyone else) already joined, the server-side RPC is now
+    // idempotent and will just return the existing bot's id — no error.
     try {
       await addBotToMatch({
         matchId,
         playerId,
         botName: `🤖 ${randomBotName()}`,
       });
-    } catch (e) {
-      console.error(e);
-      toast.error("Couldn't add a bot.");
+    } catch (e: unknown) {
+      console.error("addBotToMatch failed", e);
+      const msg =
+        (e as { message?: string })?.message ?? "Couldn't add a bot.";
+      toast.error(msg);
     }
   }, [matchId, playerId]);
 
