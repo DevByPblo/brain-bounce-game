@@ -334,18 +334,23 @@ const Index = () => {
   // Playing
   return (
     <main className="relative z-10 min-h-screen flex flex-col">
-      {/* Masthead */}
-      <header className="border-b border-rule bg-card/60 backdrop-blur-sm">
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3 sm:gap-6">
+      {/* Sticky masthead — always visible while racing */}
+      <header className="sticky top-0 z-30 border-b border-rule bg-card/95 backdrop-blur-md shadow-sm">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2 sm:py-3 flex items-center justify-between gap-3 sm:gap-6">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <div className="serif text-lg sm:text-2xl font-extrabold whitespace-nowrap">
+            <div className="serif text-base sm:text-xl font-extrabold whitespace-nowrap">
               Wiki<span className="italic text-primary">Race</span>
             </div>
-            <span className="hidden md:inline small-caps text-[10px] text-ink-faint">
-              {mode === "daily" ? "Daily challenge" : mode === "custom" ? "Custom target" : `${difficulty} mode`}
-            </span>
+            {/* Target word — always visible */}
+            <div className="hidden sm:flex items-center gap-1.5 pl-3 ml-1 border-l border-rule min-w-0">
+              <Target className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span className="small-caps text-[10px] text-ink-faint">Find</span>
+              <span className="serif text-sm font-bold text-primary truncate max-w-[200px]">
+                {target?.title ?? "…"}
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-3 sm:gap-6 ticker">
+          <div className="flex items-center gap-2 sm:gap-5 ticker">
             <Metric label="Clicks" value={String(clicks)} />
             <Metric label="Time" value={formatTime(elapsed)} />
             {undos > 0 && <Metric label="Undos" value={String(undos)} />}
@@ -391,8 +396,17 @@ const Index = () => {
           </div>
         </div>
 
+        {/* Mobile: show target on its own line so it never gets cut */}
+        <div className="sm:hidden max-w-6xl mx-auto px-3 pb-2 flex items-center gap-1.5">
+          <Target className="w-3 h-3 text-primary shrink-0" />
+          <span className="small-caps text-[9px] text-ink-faint">Find</span>
+          <span className="serif text-xs font-bold text-primary truncate">
+            {target?.title ?? "…"}
+          </span>
+        </div>
+
         {/* Start → Target rail */}
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-3 sm:pb-4">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-3 sm:pb-4 hidden sm:block">
           <div className="paper-card flex flex-col sm:flex-row sm:items-stretch overflow-hidden">
             <RailEnd
               icon={<Flag className="w-3.5 h-3.5" />}
@@ -402,9 +416,6 @@ const Index = () => {
             />
             <div className="hidden sm:flex items-center px-4 text-ink-faint">
               <ArrowRight className="w-4 h-4" />
-            </div>
-            <div className="sm:hidden border-t border-rule flex items-center justify-center py-1 text-ink-faint">
-              <ArrowRight className="w-4 h-4 rotate-90" />
             </div>
             <RailEnd
               icon={<Target className="w-3.5 h-3.5" />}
