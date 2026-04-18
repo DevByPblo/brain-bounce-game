@@ -68,6 +68,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { setRaceActive } from "@/hooks/use-race-active";
 import { HintCard } from "@/components/HintCard";
+import { recordRun } from "@/lib/achievements";
+import { celebrateBadges } from "@/lib/achievementToast";
 
 type Phase = "lobby" | "searching" | "room" | "briefing" | "racing" | "finished";
 type Mode = "quick" | "private";
@@ -196,8 +198,21 @@ const Multiplayer = () => {
 
     if (match.status === "finished" && phase !== "finished") {
       setPhase("finished");
+      // Achievements: only the actual winner unlocks the multiplayer badges.
+      if (match.winner_player_id === playerId) {
+        const me = players.find((p) => p.player_id === playerId);
+        const earned = recordRun({
+          mode: "multiplayer",
+          won: true,
+          clicks: me?.clicks ?? 0,
+          timeMs: me?.time_ms ?? (Date.now() - startedAtRef.current),
+          hintsUsed: 0,
+          undos: 0,
+        });
+        if (earned.length) celebrateBadges(earned);
+      }
     }
-  }, [match, phase]);
+  }, [match, phase, playerId, players]);
 
   // ─── Begin race when briefing is dismissed (countdown finished) ───
   const handleBriefingDone = useCallback(() => {

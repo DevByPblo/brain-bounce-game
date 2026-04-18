@@ -22,6 +22,8 @@ import {
 } from "@/lib/wiki";
 import { submitScore } from "@/lib/onlineScores";
 import { useAuth } from "@/lib/auth";
+import { recordRun } from "@/lib/achievements";
+import { celebrateBadges } from "@/lib/achievementToast";
 import { toast } from "sonner";
 
 type Phase = "idle" | "loading" | "playing" | "done";
@@ -74,6 +76,18 @@ const Collector = () => {
     if (submittedRef.current) return;
     submittedRef.current = true;
     setPhase("done");
+
+    // Achievements: a finished round counts as a "win".
+    const earned = recordRun({
+      mode: "collector",
+      won: reached.length > 0,
+      clicks,
+      timeMs: ROUND_MS,
+      hintsUsed: 0,
+      undos: 0,
+    });
+    if (earned.length) celebrateBadges(earned);
+
     if (user) {
       const res = await submitScore({
         mode: "collector",
@@ -303,7 +317,7 @@ const Collector = () => {
   const lowTime = remaining < 20_000;
   return (
     <main className="relative z-10 min-h-screen flex flex-col">
-      <header className="border-b border-rule bg-card/60 backdrop-blur-sm">
+      <header className="sticky top-0 z-30 border-b border-rule bg-card/95 backdrop-blur-md shadow-sm">
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-6">
           <Link to="/" className="serif text-2xl font-extrabold">
             Wiki<span className="italic text-primary">Race</span>

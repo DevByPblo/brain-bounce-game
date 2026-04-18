@@ -13,6 +13,7 @@ import Auth from "./pages/Auth.tsx";
 import Leaderboard from "./pages/Leaderboard.tsx";
 import Collector from "./pages/Collector.tsx";
 import NoMove from "./pages/NoMove.tsx";
+import Achievements from "./pages/Achievements.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -42,6 +43,7 @@ const App = () => (
             <Route path="/collector" element={<Collector />} />
             <Route path="/nomove" element={<NoMove />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
+            <Route path="/achievements" element={<Achievements />} />
             <Route path="/auth" element={<Auth />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
