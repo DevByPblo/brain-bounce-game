@@ -86,7 +86,12 @@ export const AuthMenu = () => {
 
   if (isAnon) {
     return (
-      <div className="fixed top-2 right-2 sm:top-3 sm:right-3 z-50">
+      <div className="fixed top-2 right-2 sm:top-3 sm:right-3 z-50 flex items-center gap-2">
+        <Link to="/achievements" title="Achievements">
+          <Button variant="outline" size="sm" className="paper-card shadow-sm h-8 px-2.5">
+            <Trophy className="w-3.5 h-3.5" />
+          </Button>
+        </Link>
         <Link to="/auth">
           <Button variant="outline" size="sm" className="paper-card shadow-sm h-8 px-2.5">
             <LogIn className="w-3.5 h-3.5 sm:mr-1.5" />
@@ -218,6 +223,13 @@ export const AuthMenu = () => {
           </div>
 
           <DropdownMenuSeparator />
+
+          <Link to="/achievements">
+            <DropdownMenuItem className="cursor-pointer">
+              <Trophy className="w-3.5 h-3.5 mr-2" />
+              Achievements
+            </DropdownMenuItem>
+          </Link>
 
           <DropdownMenuItem
             onClick={async () => {
