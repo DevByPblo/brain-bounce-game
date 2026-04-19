@@ -213,6 +213,15 @@ const NoMove = () => {
 
   return (
     <main className="relative z-10 min-h-screen flex flex-col">
+      {phase === "countdown" && (
+        <Countdown
+          onComplete={() => {
+            startedAt.current = Date.now();
+            setElapsed(0);
+            setPhase("playing");
+          }}
+        />
+      )}
       <header className="sticky top-0 z-30 border-b border-rule bg-card/95 backdrop-blur-md shadow-sm transition-all duration-200">
         <div className={`max-w-6xl mx-auto px-6 flex items-center justify-between gap-6 transition-all duration-200 ${compact ? "py-1.5" : "py-2"}`}>
           <div className="flex items-center gap-3 min-w-0">
