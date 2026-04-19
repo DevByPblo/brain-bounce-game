@@ -70,6 +70,7 @@ import { setRaceActive } from "@/hooks/use-race-active";
 import { HintCard } from "@/components/HintCard";
 import { recordRun } from "@/lib/achievements";
 import { celebrateBadges } from "@/lib/achievementToast";
+import { useBlockFind } from "@/hooks/use-block-find";
 
 type Phase = "lobby" | "searching" | "room" | "briefing" | "racing" | "finished";
 type Mode = "quick" | "private";
