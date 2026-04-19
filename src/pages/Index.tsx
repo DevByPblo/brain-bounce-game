@@ -114,6 +114,8 @@ const Index = () => {
   const [error, setError] = useState<string | null>(null);
   const startRef = useRef<number>(0);
   const autoStartedRef = useRef(false);
+  const compact = useScrolled(40);
+  useBlockFind(phase === "playing");
 
   const hintCost = useMemo(
     () => HINT_COSTS.slice(0, hintsUsed).reduce((a, b) => a + b, 0),
