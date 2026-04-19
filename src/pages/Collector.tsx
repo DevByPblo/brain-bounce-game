@@ -58,6 +58,8 @@ const Collector = () => {
   const submittedRef = useRef(false);
 
   const { user } = useAuth();
+  const compact = useScrolled(40);
+  useBlockFind(phase === "playing");
 
   // Tick + auto-end
   useEffect(() => {

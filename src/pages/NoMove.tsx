@@ -52,6 +52,8 @@ const NoMove = () => {
   const startedAt = useRef(0);
   const submittedRef = useRef(false);
   const { user } = useAuth();
+  const compact = useScrolled(40);
+  useBlockFind(phase === "playing");
 
   useEffect(() => {
     if (phase !== "playing") return;
