@@ -60,6 +60,8 @@ import { setRaceActive } from "@/hooks/use-race-active";
 import { HintCard, HINT_COSTS } from "@/components/HintCard";
 import { recordRun } from "@/lib/achievements";
 import { celebrateBadges } from "@/lib/achievementToast";
+import { useScrolled } from "@/hooks/use-scrolled";
+import { useBlockFind } from "@/hooks/use-block-find";
 
 type Phase = "idle" | "loading" | "playing" | "won";
 
@@ -268,6 +270,7 @@ const Index = () => {
         timeMs: finalElapsed,
         hintsUsed,
         undos: finalUndos,
+        category: mode === "random" && category ? category : undefined,
       });
       if (earned.length) celebrateBadges(earned);
 
