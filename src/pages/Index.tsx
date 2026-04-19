@@ -63,7 +63,7 @@ import { celebrateBadges } from "@/lib/achievementToast";
 import { useScrolled } from "@/hooks/use-scrolled";
 import { useBlockFind } from "@/hooks/use-block-find";
 
-type Phase = "idle" | "loading" | "playing" | "won";
+type Phase = "idle" | "loading" | "countdown" | "playing" | "won";
 
 const UNDO_PENALTY = 200; // score points per undo step
 
@@ -185,8 +185,8 @@ const Index = () => {
       setCurrentTitle(art.title);
       setArticleHtml(art.html);
       setPath([{ title: art.title, html: art.html }]);
-      startRef.current = Date.now();
-      setPhase("playing");
+      // Show countdown overlay; the timer starts when it completes.
+      setPhase("countdown");
     } catch (e) {
       console.error(e);
       const msg = e instanceof Error ? e.message : "Couldn't reach Wikipedia. Try again.";
