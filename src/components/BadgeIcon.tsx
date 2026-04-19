@@ -1,6 +1,8 @@
 import {
   Trophy, Medal, Crown, Zap, Timer, LightbulbOff, Undo2, Swords,
-  Target, EyeOff, Calendar, Shuffle, Pencil, Users, type LucideIcon,
+  Target, EyeOff, Calendar, Shuffle, Pencil, Users,
+  Compass, Globe, Library, Layers,
+  type LucideIcon,
 } from "lucide-react";
 import type { Badge } from "@/lib/achievements";
 
@@ -19,6 +21,10 @@ const MAP: Record<Badge["icon"], LucideIcon> = {
   shuffle: Shuffle,
   pencil: Pencil,
   users: Users,
+  compass: Compass,
+  globe: Globe,
+  library: Library,
+  layers: Layers,
 };
 
 export const BadgeIcon = ({

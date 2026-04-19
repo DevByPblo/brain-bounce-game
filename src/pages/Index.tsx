@@ -60,6 +60,8 @@ import { setRaceActive } from "@/hooks/use-race-active";
 import { HintCard, HINT_COSTS } from "@/components/HintCard";
 import { recordRun } from "@/lib/achievements";
 import { celebrateBadges } from "@/lib/achievementToast";
+import { useScrolled } from "@/hooks/use-scrolled";
+import { useBlockFind } from "@/hooks/use-block-find";
 
 type Phase = "idle" | "loading" | "playing" | "won";
 
@@ -112,6 +114,8 @@ const Index = () => {
   const [error, setError] = useState<string | null>(null);
   const startRef = useRef<number>(0);
   const autoStartedRef = useRef(false);
+  const compact = useScrolled(40);
+  useBlockFind(phase === "playing");
 
   const hintCost = useMemo(
     () => HINT_COSTS.slice(0, hintsUsed).reduce((a, b) => a + b, 0),
@@ -268,6 +272,7 @@ const Index = () => {
         timeMs: finalElapsed,
         hintsUsed,
         undos: finalUndos,
+        category: mode === "random" && category ? category : undefined,
       });
       if (earned.length) celebrateBadges(earned);
 
@@ -275,7 +280,7 @@ const Index = () => {
       setPath(finalPath);
       setPhase("won");
     },
-    [difficulty, mode, start, target, hintCost, hintsUsed]
+    [difficulty, mode, start, target, hintCost, hintsUsed, category]
   );
 
   const navigate = useCallback(
@@ -351,10 +356,10 @@ const Index = () => {
   return (
     <main className="relative z-10 min-h-screen flex flex-col">
       {/* Sticky masthead — always visible while racing */}
-      <header className="sticky top-0 z-30 border-b border-rule bg-card/95 backdrop-blur-md shadow-sm">
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2 sm:py-3 flex items-center justify-between gap-3 sm:gap-6">
+      <header className="sticky top-0 z-30 border-b border-rule bg-card/95 backdrop-blur-md shadow-sm transition-all duration-200">
+        <div className={`max-w-6xl mx-auto px-3 sm:px-6 flex items-center justify-between gap-3 sm:gap-6 transition-all duration-200 ${compact ? "py-1.5" : "py-2 sm:py-3"}`}>
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <div className="serif text-base sm:text-xl font-extrabold whitespace-nowrap">
+            <div className={`serif font-extrabold whitespace-nowrap transition-all ${compact ? "text-sm sm:text-base" : "text-base sm:text-xl"}`}>
               Wiki<span className="italic text-primary">Race</span>
             </div>
             {/* Target word — always visible */}
@@ -422,7 +427,7 @@ const Index = () => {
         </div>
 
         {/* Start → Target rail */}
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-3 sm:pb-4 hidden sm:block">
+        <div className={`max-w-6xl mx-auto px-3 sm:px-6 pb-3 sm:pb-4 hidden sm:block transition-all overflow-hidden ${compact ? "max-h-0 !pb-0 opacity-0 pointer-events-none" : "max-h-[200px]"}`}>
           <div className="paper-card flex flex-col sm:flex-row sm:items-stretch overflow-hidden">
             <RailEnd
               icon={<Flag className="w-3.5 h-3.5" />}

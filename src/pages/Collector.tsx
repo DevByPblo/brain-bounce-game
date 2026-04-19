@@ -25,6 +25,8 @@ import { useAuth } from "@/lib/auth";
 import { recordRun } from "@/lib/achievements";
 import { celebrateBadges } from "@/lib/achievementToast";
 import { toast } from "sonner";
+import { useScrolled } from "@/hooks/use-scrolled";
+import { useBlockFind } from "@/hooks/use-block-find";
 
 type Phase = "idle" | "loading" | "playing" | "done";
 
@@ -56,6 +58,8 @@ const Collector = () => {
   const submittedRef = useRef(false);
 
   const { user } = useAuth();
+  const compact = useScrolled(40);
+  useBlockFind(phase === "playing");
 
   // Tick + auto-end
   useEffect(() => {
@@ -317,9 +321,9 @@ const Collector = () => {
   const lowTime = remaining < 20_000;
   return (
     <main className="relative z-10 min-h-screen flex flex-col">
-      <header className="sticky top-0 z-30 border-b border-rule bg-card/95 backdrop-blur-md shadow-sm">
-        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-6">
-          <Link to="/" className="serif text-2xl font-extrabold">
+      <header className="sticky top-0 z-30 border-b border-rule bg-card/95 backdrop-blur-md shadow-sm transition-all duration-200">
+        <div className={`max-w-6xl mx-auto px-6 flex items-center justify-between gap-6 transition-all duration-200 ${compact ? "py-1.5" : "py-3"}`}>
+          <Link to="/" className={`serif font-extrabold transition-all ${compact ? "text-base" : "text-2xl"}`}>
             Wiki<span className="italic text-primary">Race</span>
           </Link>
           <div className="flex items-center gap-5 ticker">
@@ -336,38 +340,60 @@ const Collector = () => {
           </div>
         </div>
 
-        {/* Targets list */}
+        {/* Targets list — collapses to a single line when scrolled */}
         <div className="max-w-6xl mx-auto px-6 pb-3">
           <div className="flex items-center gap-2 mb-2">
             <Target className="w-3.5 h-3.5 text-primary" />
             <span className="small-caps text-[10px] text-ink-faint">
-              Active targets ({reached.length} collected)
+              {compact ? `Targets · ${reached.length}/${targets.length}` : `Active targets (${reached.length} collected)`}
             </span>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-            {targets.map((t, i) => {
-              const hit = targetIsHit(t);
-              return (
-                <div
-                  key={`${t}-${i}`}
-                  className={`paper-card px-3 py-2 text-sm truncate transition-all ${
-                    hit ? "ring-2 ring-primary text-primary font-semibold" : ""
-                  }`}
-                  title={t}
-                >
-                  {hit && <CheckCircle2 className="w-3 h-3 inline mr-1" />}
-                  {t}
-                </div>
-              );
-            })}
-          </div>
+          {!compact && (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+              {targets.map((t, i) => {
+                const hit = targetIsHit(t);
+                return (
+                  <div
+                    key={`${t}-${i}`}
+                    className={`paper-card px-3 py-2 text-sm truncate transition-all ${
+                      hit ? "ring-2 ring-primary text-primary font-semibold" : ""
+                    }`}
+                    title={t}
+                  >
+                    {hit && <CheckCircle2 className="w-3 h-3 inline mr-1" />}
+                    {t}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {compact && (
+            <div className="flex flex-wrap gap-1.5">
+              {targets.map((t, i) => {
+                const hit = targetIsHit(t);
+                return (
+                  <span
+                    key={`${t}-${i}`}
+                    className={`text-[11px] px-1.5 py-0.5 rounded border truncate max-w-[140px] ${
+                      hit ? "bg-primary/15 text-primary border-primary/30 font-semibold" : "border-rule text-ink-soft"
+                    }`}
+                    title={t}
+                  >
+                    {t}
+                  </span>
+                );
+              })}
+            </div>
+          )}
         </div>
 
-        <div className="max-w-6xl mx-auto px-6 pb-3 small-caps text-[10px] text-ink-faint">
-          Started from <span className="text-ink-soft">{startTitle}</span> ·
-          on <span className="text-ink-soft">{currentTitle}</span> ·
-          hops since last hit: {hopsThisLeg}
-        </div>
+        {!compact && (
+          <div className="max-w-6xl mx-auto px-6 pb-3 small-caps text-[10px] text-ink-faint">
+            Started from <span className="text-ink-soft">{startTitle}</span> ·
+            on <span className="text-ink-soft">{currentTitle}</span> ·
+            hops since last hit: {hopsThisLeg}
+          </div>
+        )}
       </header>
 
       <div className="flex-1 max-w-6xl w-full mx-auto px-6 py-4 min-h-0">

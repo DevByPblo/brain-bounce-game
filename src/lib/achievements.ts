@@ -24,7 +24,11 @@ export type Badge = {
     | "calendar"
     | "shuffle"
     | "pencil"
-    | "users";
+    | "users"
+    | "compass"
+    | "globe"
+    | "library"
+    | "layers";
 };
 
 export type RunMode =
@@ -43,6 +47,8 @@ export type RunResult = {
   timeMs: number;
   hintsUsed: number;
   undos: number;
+  /** Optional: category label this race targeted (race-random with a category). */
+  category?: string;
 };
 
 export type Stats = {
@@ -50,12 +56,25 @@ export type Stats = {
   winsByMode: Record<RunMode, number>;
   bestClicksRace: number | null;
   bestTimeRaceMs: number | null;
+  /** Per-category win counts (race-random + category). */
+  winsByCategory: Record<string, number>;
 };
 
 const STATS_KEY = "wikirace.stats.v1";
 const UNLOCKED_KEY = "wikirace.achievements.v1";
 
 // ───────────────────────────── Catalog ─────────────────────────────
+
+// Category-based badges target the "popular" categories surfaced on the
+// home screen. Each unlocks on the first win in a category-targeted Random race.
+const CATEGORY_BADGE_DEFS: { id: string; label: string; categoryLabel: string; icon: Badge["icon"] }[] = [
+  { id: "cat-people",     label: "Biographer",     categoryLabel: "People",         icon: "users" },
+  { id: "cat-wars",       label: "War Historian",  categoryLabel: "Wars",           icon: "swords" },
+  { id: "cat-music",      label: "Crate Digger",   categoryLabel: "Music",          icon: "library" },
+  { id: "cat-food",       label: "Gourmand",       categoryLabel: "Food and Drink", icon: "target" },
+  { id: "cat-sports",     label: "Stats Nerd",     categoryLabel: "Sports",         icon: "trophy" },
+  { id: "cat-film",       label: "Cinephile",      categoryLabel: "Film and TV",    icon: "layers" },
+];
 
 export const BADGES: Badge[] = [
   // Milestones
@@ -77,10 +96,27 @@ export const BADGES: Badge[] = [
   { id: "mode-collector", label: "Link Collector", description: "Finish a Collector round.", category: "mode", icon: "target" },
   { id: "mode-nomove", label: "Blind Pilgrim", description: "Win a No-Move race.", category: "mode", icon: "eye-off" },
   { id: "mode-multiplayer", label: "Duelist", description: "Win a multiplayer match.", category: "mode", icon: "swords" },
+
+  // Category badges — earned on the first win of a category-targeted race.
+  ...CATEGORY_BADGE_DEFS.map((c) => ({
+    id: c.id,
+    label: c.label,
+    description: `Win a Random race targeting the “${c.categoryLabel}” category.`,
+    category: "mode" as const,
+    icon: c.icon,
+  })),
+
+  // Cross-category accomplishments.
+  { id: "cat-explorer", label: "Explorer", description: "Win a race in 3 different categories.", category: "milestone", icon: "compass" },
+  { id: "cat-polymath", label: "Polymath", description: "Win a race in 6 different categories.", category: "milestone", icon: "globe" },
 ];
 
 export const BADGE_BY_ID: Record<string, Badge> = Object.fromEntries(
   BADGES.map((b) => [b.id, b])
+);
+
+const CATEGORY_TO_BADGE_ID: Record<string, string> = Object.fromEntries(
+  CATEGORY_BADGE_DEFS.map((c) => [c.categoryLabel, c.id])
 );
 
 // ───────────────────────────── Storage ─────────────────────────────
@@ -97,6 +133,7 @@ const emptyStats = (): Stats => ({
   },
   bestClicksRace: null,
   bestTimeRaceMs: null,
+  winsByCategory: {},
 });
 
 export function getStats(): Stats {
@@ -104,7 +141,13 @@ export function getStats(): Stats {
     const raw = localStorage.getItem(STATS_KEY);
     if (!raw) return emptyStats();
     const parsed = JSON.parse(raw) as Partial<Stats>;
-    return { ...emptyStats(), ...parsed, winsByMode: { ...emptyStats().winsByMode, ...(parsed.winsByMode ?? {}) } };
+    const base = emptyStats();
+    return {
+      ...base,
+      ...parsed,
+      winsByMode: { ...base.winsByMode, ...(parsed.winsByMode ?? {}) },
+      winsByCategory: { ...base.winsByCategory, ...(parsed.winsByCategory ?? {}) },
+    };
   } catch {
     return emptyStats();
   }
@@ -158,6 +201,9 @@ export function recordRun(run: RunResult): Badge[] {
         stats.bestTimeRaceMs = run.timeMs;
       }
     }
+    if (run.category) {
+      stats.winsByCategory[run.category] = (stats.winsByCategory[run.category] ?? 0) + 1;
+    }
   }
   writeStats(stats);
 
@@ -199,8 +245,20 @@ export function recordRun(run: RunResult): Badge[] {
     if (run.mode === "collector") earn("mode-collector");
     if (run.mode === "nomove") earn("mode-nomove");
     if (run.mode === "multiplayer") earn("mode-multiplayer");
+
+    // Category badges
+    if (run.category) {
+      const badgeId = CATEGORY_TO_BADGE_ID[run.category];
+      if (badgeId) earn(badgeId);
+      const distinctCats = Object.keys(stats.winsByCategory).filter(
+        (k) => (stats.winsByCategory[k] ?? 0) > 0
+      ).length;
+      if (distinctCats >= 3) earn("cat-explorer");
+      if (distinctCats >= 6) earn("cat-polymath");
+    }
   }
 
   if (newlyEarned.length > 0) writeUnlocked(Array.from(already));
   return newlyEarned;
 }
+
