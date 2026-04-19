@@ -353,9 +353,18 @@ const Index = () => {
     );
   }
 
-  // Playing
+  // Playing (and countdown — we render the race UI behind the overlay)
   return (
     <main className="relative z-10 min-h-screen flex flex-col">
+      {phase === "countdown" && (
+        <Countdown
+          onComplete={() => {
+            startRef.current = Date.now();
+            setElapsed(0);
+            setPhase("playing");
+          }}
+        />
+      )}
       {/* Sticky masthead — always visible while racing */}
       <header className="sticky top-0 z-30 border-b border-rule bg-card/95 backdrop-blur-md shadow-sm transition-all duration-200">
         <div className={`max-w-6xl mx-auto px-3 sm:px-6 flex items-center justify-between gap-3 sm:gap-6 transition-all duration-200 ${compact ? "py-1.5" : "py-2 sm:py-3"}`}>
