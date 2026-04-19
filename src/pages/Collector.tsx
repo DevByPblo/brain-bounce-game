@@ -134,8 +134,7 @@ const Collector = () => {
       setCurrentTitle(art.title);
       setArticleHtml(art.html);
       setTargets(ts.slice(0, ACTIVE_TARGETS));
-      startedAt.current = Date.now();
-      setPhase("playing");
+      setPhase("countdown");
     } catch (e) {
       console.error(e);
       setError("Couldn't reach Wikipedia. Try again.");

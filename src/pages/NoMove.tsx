@@ -84,8 +84,7 @@ const NoMove = () => {
       setTarget(tSum);
       setCurrentTitle(art.title);
       setArticleHtml(art.html);
-      startedAt.current = Date.now();
-      setPhase("playing");
+      setPhase("countdown");
     } catch (e) {
       console.error(e);
       setError("Couldn't reach Wikipedia. Try again.");
