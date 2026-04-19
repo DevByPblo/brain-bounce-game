@@ -278,7 +278,7 @@ const Index = () => {
       setPath(finalPath);
       setPhase("won");
     },
-    [difficulty, mode, start, target, hintCost, hintsUsed]
+    [difficulty, mode, start, target, hintCost, hintsUsed, category]
   );
 
   const navigate = useCallback(
