@@ -89,6 +89,7 @@ const Multiplayer = () => {
   const [phase, setPhase] = useState<Phase>("lobby");
   const [mode, setMode] = useState<Mode>("quick");
   const [name, setName] = useState<string>(() => getPlayerName());
+  useBlockFind(phase === "racing");
   const [category, setCategory] = useState<string>("");
   const [difficulty, setDifficulty] = useState<"easy" | "normal" | "hard">("normal");
   const [disableHints, setDisableHints] = useState<boolean>(false);
