@@ -24,7 +24,11 @@ export type Badge = {
     | "calendar"
     | "shuffle"
     | "pencil"
-    | "users";
+    | "users"
+    | "compass"
+    | "globe"
+    | "library"
+    | "layers";
 };
 
 export type RunMode =
