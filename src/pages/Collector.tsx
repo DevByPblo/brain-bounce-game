@@ -60,7 +60,7 @@ const Collector = () => {
 
   const { user } = useAuth();
   const compact = useScrolled(40);
-  useBlockFind(phase === "playing");
+  useBlockFind(phase === "playing" || phase === "countdown");
 
   // Tick + auto-end
   useEffect(() => {

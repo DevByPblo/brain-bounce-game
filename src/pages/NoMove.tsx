@@ -54,7 +54,7 @@ const NoMove = () => {
   const submittedRef = useRef(false);
   const { user } = useAuth();
   const compact = useScrolled(40);
-  useBlockFind(phase === "playing");
+  useBlockFind(phase === "playing" || phase === "countdown");
 
   useEffect(() => {
     if (phase !== "playing") return;
