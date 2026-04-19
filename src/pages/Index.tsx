@@ -131,7 +131,7 @@ const Index = () => {
 
   // Track race-active state globally so chrome (e.g. AuthMenu) can hide.
   useEffect(() => {
-    setRaceActive(phase === "playing");
+    setRaceActive(phase === "playing" || phase === "countdown");
     return () => setRaceActive(false);
   }, [phase]);
 
