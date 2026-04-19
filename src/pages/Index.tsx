@@ -62,6 +62,7 @@ import { recordRun } from "@/lib/achievements";
 import { celebrateBadges } from "@/lib/achievementToast";
 import { useScrolled } from "@/hooks/use-scrolled";
 import { useBlockFind } from "@/hooks/use-block-find";
+import { Countdown } from "@/components/Countdown";
 
 type Phase = "idle" | "loading" | "countdown" | "playing" | "won";
 
