@@ -27,8 +27,9 @@ import { celebrateBadges } from "@/lib/achievementToast";
 import { toast } from "sonner";
 import { useScrolled } from "@/hooks/use-scrolled";
 import { useBlockFind } from "@/hooks/use-block-find";
+import { Countdown } from "@/components/Countdown";
 
-type Phase = "idle" | "loading" | "playing" | "won";
+type Phase = "idle" | "loading" | "countdown" | "playing" | "won";
 
 const HOP_PENALTY = 80;
 const BASE = 5000;
@@ -53,7 +54,7 @@ const NoMove = () => {
   const submittedRef = useRef(false);
   const { user } = useAuth();
   const compact = useScrolled(40);
-  useBlockFind(phase === "playing");
+  useBlockFind(phase === "playing" || phase === "countdown");
 
   useEffect(() => {
     if (phase !== "playing") return;
@@ -83,8 +84,7 @@ const NoMove = () => {
       setTarget(tSum);
       setCurrentTitle(art.title);
       setArticleHtml(art.html);
-      startedAt.current = Date.now();
-      setPhase("playing");
+      setPhase("countdown");
     } catch (e) {
       console.error(e);
       setError("Couldn't reach Wikipedia. Try again.");
@@ -213,6 +213,15 @@ const NoMove = () => {
 
   return (
     <main className="relative z-10 min-h-screen flex flex-col">
+      {phase === "countdown" && (
+        <Countdown
+          onComplete={() => {
+            startedAt.current = Date.now();
+            setElapsed(0);
+            setPhase("playing");
+          }}
+        />
+      )}
       <header className="sticky top-0 z-30 border-b border-rule bg-card/95 backdrop-blur-md shadow-sm transition-all duration-200">
         <div className={`max-w-6xl mx-auto px-6 flex items-center justify-between gap-6 transition-all duration-200 ${compact ? "py-1.5" : "py-2"}`}>
           <div className="flex items-center gap-3 min-w-0">
