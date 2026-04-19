@@ -27,8 +27,9 @@ import { celebrateBadges } from "@/lib/achievementToast";
 import { toast } from "sonner";
 import { useScrolled } from "@/hooks/use-scrolled";
 import { useBlockFind } from "@/hooks/use-block-find";
+import { Countdown } from "@/components/Countdown";
 
-type Phase = "idle" | "loading" | "playing" | "done";
+type Phase = "idle" | "loading" | "countdown" | "playing" | "done";
 
 const ROUND_MS = 120_000; // 2 minutes
 const ACTIVE_TARGETS = 5;

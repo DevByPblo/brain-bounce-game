@@ -27,8 +27,9 @@ import { celebrateBadges } from "@/lib/achievementToast";
 import { toast } from "sonner";
 import { useScrolled } from "@/hooks/use-scrolled";
 import { useBlockFind } from "@/hooks/use-block-find";
+import { Countdown } from "@/components/Countdown";
 
-type Phase = "idle" | "loading" | "playing" | "won";
+type Phase = "idle" | "loading" | "countdown" | "playing" | "won";
 
 const HOP_PENALTY = 80;
 const BASE = 5000;
