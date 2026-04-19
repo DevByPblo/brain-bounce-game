@@ -40,7 +40,7 @@ const Leaderboard = () => {
   }, [mode]);
 
   return (
-    <main className="relative z-10 min-h-screen px-6 py-12">
+    <main className="relative z-10 min-h-screen px-3 sm:px-6 py-8 sm:py-12">
       <div className="max-w-4xl mx-auto">
         <Link
           to="/"
@@ -49,23 +49,23 @@ const Leaderboard = () => {
           <ArrowLeft className="w-3 h-3" /> Back
         </Link>
 
-        <div className="text-center mb-10">
+        <div className="text-center mb-8 sm:mb-10">
           <Medal className="w-8 h-8 mx-auto text-primary mb-3" />
           <div className="small-caps text-xs text-ink-soft mb-2">
             Vol. I · No. 3 · The standings
           </div>
-          <h1 className="serif text-5xl font-extrabold tracking-tight">
+          <h1 className="serif text-4xl sm:text-5xl font-extrabold tracking-tight">
             Global <span className="italic text-primary">leaderboard</span>
           </h1>
         </div>
 
-        <div className="flex flex-wrap gap-2 justify-center mb-8">
+        <div className="flex flex-wrap gap-2 justify-center mb-6 sm:mb-8">
           {MODES.map((m) => (
             <button
               key={m.id}
               onClick={() => setMode(m.id)}
-              className={`paper-card px-4 py-2 text-sm transition-all ${
-                mode === m.id ? "ring-2 ring-primary text-primary font-semibold" : ""
+              className={`paper-card px-3 sm:px-4 py-2 text-xs sm:text-sm transition-all ${
+                mode === m.id ? "ring-2 ring-primary text-primary font-semibold" : "text-ink"
               }`}
             >
               {m.label}
@@ -73,7 +73,7 @@ const Leaderboard = () => {
           ))}
         </div>
 
-        <p className="text-center text-sm text-ink-soft serif italic mb-6">
+        <p className="text-center text-sm text-ink serif italic mb-5">
           {MODES.find((m) => m.id === mode)?.desc}
         </p>
 
@@ -83,55 +83,59 @@ const Leaderboard = () => {
               <Loader2 className="w-5 h-5 animate-spin" />
             </div>
           ) : scores.length === 0 ? (
-            <div className="text-center py-16 text-ink-soft serif italic">
+            <div className="text-center py-16 text-ink serif italic">
               No scores yet. Be the first to submit one.
             </div>
           ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-rule text-left">
-                  <th className="small-caps text-[10px] text-ink-faint px-4 py-3 w-10">#</th>
-                  <th className="small-caps text-[10px] text-ink-faint px-4 py-3">Player</th>
-                  <th className="small-caps text-[10px] text-ink-faint px-4 py-3 text-right">
-                    <span className="inline-flex items-center gap-1">
-                      <Trophy className="w-3 h-3" /> Score
-                    </span>
-                  </th>
-                  <th className="small-caps text-[10px] text-ink-faint px-4 py-3 text-right hidden md:table-cell">
-                    <span className="inline-flex items-center gap-1">
-                      <MousePointerClick className="w-3 h-3" /> Clicks
-                    </span>
-                  </th>
-                  <th className="small-caps text-[10px] text-ink-faint px-4 py-3 text-right hidden md:table-cell">
-                    <span className="inline-flex items-center gap-1">
-                      <Clock className="w-3 h-3" /> Time
-                    </span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {scores.map((s, i) => (
-                  <tr
-                    key={s.id}
-                    className={`border-b border-rule/60 last:border-0 ${
-                      i < 3 ? "bg-primary/5" : ""
-                    }`}
-                  >
-                    <td className="px-4 py-3 mono text-sm text-ink-faint">{i + 1}</td>
-                    <td className="px-4 py-3 serif font-semibold">{s.display_name}</td>
-                    <td className="px-4 py-3 mono text-right ticker font-bold">
-                      {s.score.toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 mono text-right text-ink-soft text-sm hidden md:table-cell">
-                      {s.clicks}
-                    </td>
-                    <td className="px-4 py-3 mono text-right text-ink-soft text-sm hidden md:table-cell">
-                      {s.time_ms ? formatTime(s.time_ms) : "—"}
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[420px]">
+                <thead>
+                  <tr className="border-b border-rule text-left bg-muted/40">
+                    <th className="small-caps text-[10px] text-ink-soft px-2 sm:px-4 py-3 w-8 sm:w-10">#</th>
+                    <th className="small-caps text-[10px] text-ink-soft px-2 sm:px-4 py-3">Player</th>
+                    <th className="small-caps text-[10px] text-ink-soft px-2 sm:px-4 py-3 text-right">
+                      <span className="inline-flex items-center gap-1">
+                        <Trophy className="w-3 h-3" /> Score
+                      </span>
+                    </th>
+                    <th className="small-caps text-[10px] text-ink-soft px-2 sm:px-4 py-3 text-right hidden md:table-cell">
+                      <span className="inline-flex items-center gap-1">
+                        <MousePointerClick className="w-3 h-3" /> Clicks
+                      </span>
+                    </th>
+                    <th className="small-caps text-[10px] text-ink-soft px-2 sm:px-4 py-3 text-right hidden md:table-cell">
+                      <span className="inline-flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> Time
+                      </span>
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {scores.map((s, i) => (
+                    <tr
+                      key={s.id}
+                      className={`border-b border-rule/60 last:border-0 ${
+                        i < 3 ? "bg-primary/10" : ""
+                      }`}
+                    >
+                      <td className="px-2 sm:px-4 py-3 mono text-sm text-ink-soft">{i + 1}</td>
+                      <td className="px-2 sm:px-4 py-3 serif font-semibold text-ink truncate max-w-[140px] sm:max-w-none">
+                        {s.display_name}
+                      </td>
+                      <td className="px-2 sm:px-4 py-3 mono text-right ticker font-bold text-ink">
+                        {s.score.toLocaleString()}
+                      </td>
+                      <td className="px-2 sm:px-4 py-3 mono text-right text-ink text-sm hidden md:table-cell">
+                        {s.clicks}
+                      </td>
+                      <td className="px-2 sm:px-4 py-3 mono text-right text-ink text-sm hidden md:table-cell">
+                        {s.time_ms ? formatTime(s.time_ms) : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
