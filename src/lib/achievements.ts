@@ -47,6 +47,8 @@ export type RunResult = {
   timeMs: number;
   hintsUsed: number;
   undos: number;
+  /** Optional: category label this race targeted (race-random with a category). */
+  category?: string;
 };
 
 export type Stats = {
@@ -54,6 +56,8 @@ export type Stats = {
   winsByMode: Record<RunMode, number>;
   bestClicksRace: number | null;
   bestTimeRaceMs: number | null;
+  /** Per-category win counts (race-random + category). */
+  winsByCategory: Record<string, number>;
 };
 
 const STATS_KEY = "wikirace.stats.v1";
