@@ -427,7 +427,7 @@ const Index = () => {
         </div>
 
         {/* Start → Target rail */}
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-3 sm:pb-4 hidden sm:block">
+        <div className={`max-w-6xl mx-auto px-3 sm:px-6 pb-3 sm:pb-4 hidden sm:block transition-all overflow-hidden ${compact ? "max-h-0 !pb-0 opacity-0 pointer-events-none" : "max-h-[200px]"}`}>
           <div className="paper-card flex flex-col sm:flex-row sm:items-stretch overflow-hidden">
             <RailEnd
               icon={<Flag className="w-3.5 h-3.5" />}
