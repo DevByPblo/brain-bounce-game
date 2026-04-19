@@ -19,10 +19,18 @@ import NotFound from "./pages/NotFound.tsx";
 const queryClient = new QueryClient();
 
 // Scroll the window to the top whenever the route changes.
+// Also disables the browser's automatic scroll restoration so back/forward
+// navigation always lands at the top of the new page.
 const ScrollToTop = () => {
   const { pathname } = useLocation();
   useEffect(() => {
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+  }, []);
+  useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
+    document.documentElement.scrollTo({ top: 0, behavior: "auto" });
   }, [pathname]);
   return null;
 };
