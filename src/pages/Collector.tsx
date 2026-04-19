@@ -25,6 +25,8 @@ import { useAuth } from "@/lib/auth";
 import { recordRun } from "@/lib/achievements";
 import { celebrateBadges } from "@/lib/achievementToast";
 import { toast } from "sonner";
+import { useScrolled } from "@/hooks/use-scrolled";
+import { useBlockFind } from "@/hooks/use-block-find";
 
 type Phase = "idle" | "loading" | "playing" | "done";
 
