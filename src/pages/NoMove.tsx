@@ -215,6 +215,7 @@ const NoMove = () => {
     <main className="relative z-10 min-h-screen flex flex-col">
       {phase === "countdown" && (
         <Countdown
+          targetTitle={target?.title}
           onComplete={() => {
             startedAt.current = Date.now();
             setElapsed(0);
