@@ -223,10 +223,10 @@ const NoMove = () => {
           }}
         />
       )}
-      <header className="sticky top-0 z-30 border-b border-rule bg-card/95 backdrop-blur-md shadow-sm transition-all duration-200">
-        <div className={`max-w-6xl mx-auto px-6 flex items-center justify-between gap-6 transition-all duration-200 ${compact ? "py-1.5" : "py-2"}`}>
+      <header className="sticky top-0 z-30 border-b border-rule bg-card/95 backdrop-blur-md shadow-sm">
+        <div className={`max-w-6xl mx-auto px-6 flex items-center justify-between gap-6 ${compact ? "py-1.5" : "py-2"}`}>
           <div className="flex items-center gap-3 min-w-0">
-            <Link to="/" className={`serif font-extrabold whitespace-nowrap transition-all ${compact ? "text-base" : "text-xl"}`}>
+            <Link to="/" className={`serif font-extrabold whitespace-nowrap ${compact ? "text-base" : "text-xl"}`}>
               Wiki<span className="italic text-primary">Race</span>
             </Link>
             <div className="hidden sm:flex items-center gap-1.5 pl-3 ml-1 border-l border-rule min-w-0">
@@ -244,13 +244,15 @@ const NoMove = () => {
             <Button variant="outline" size="sm" onClick={() => setPhase("idle")}>End</Button>
           </div>
         </div>
-        <div className={`max-w-6xl mx-auto px-6 pb-3 transition-all overflow-hidden ${compact ? "max-h-0 !pb-0 opacity-0 pointer-events-none" : "max-h-[200px]"}`}>
-          <div className="paper-card flex items-stretch overflow-hidden">
-            <RailEnd icon={<Flag className="w-3.5 h-3.5" />} label="From" title={start?.title ?? ""} />
-            <div className="flex items-center px-4 text-ink-faint"><ArrowRight className="w-4 h-4" /></div>
-            <RailEnd icon={<Target className="w-3.5 h-3.5" />} label="To" title={target?.title ?? ""} accent />
+        {!compact && (
+          <div className="max-w-6xl mx-auto px-6 pb-3">
+            <div className="paper-card flex items-stretch overflow-hidden">
+              <RailEnd icon={<Flag className="w-3.5 h-3.5" />} label="From" title={start?.title ?? ""} />
+              <div className="flex items-center px-4 text-ink-faint"><ArrowRight className="w-4 h-4" /></div>
+              <RailEnd icon={<Target className="w-3.5 h-3.5" />} label="To" title={target?.title ?? ""} accent />
+            </div>
           </div>
-        </div>
+        )}
       </header>
 
       <div className="flex-1 max-w-6xl w-full mx-auto px-6 py-4 min-h-0">
