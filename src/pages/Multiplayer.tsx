@@ -71,6 +71,7 @@ import { HintCard } from "@/components/HintCard";
 import { recordRun } from "@/lib/achievements";
 import { celebrateBadges } from "@/lib/achievementToast";
 import { useBlockFind } from "@/hooks/use-block-find";
+import { useScrolled } from "@/hooks/use-scrolled";
 
 type Phase = "lobby" | "searching" | "room" | "briefing" | "racing" | "finished";
 type Mode = "quick" | "private";
@@ -116,6 +117,11 @@ const Multiplayer = () => {
   const finishedRef = useRef(false);
   const botRunnerRef = useRef<BotRunner | null>(null);
   const botFallbackRef = useRef<number | null>(null);
+  const channelRef = useRef<{ sendRematch: (id: string) => void; sendLeft: (id: string) => void } | null>(null);
+  const [rematchRequested, setRematchRequested] = useState(false);
+  const [opponentRematch, setOpponentRematch] = useState(false);
+  const [opponentLeft, setOpponentLeft] = useState(false);
+  const compact = useScrolled(60);
 
   const me = useMemo(
     () => players.find((p) => p.player_id === playerId) ?? null,
