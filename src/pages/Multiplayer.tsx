@@ -469,7 +469,10 @@ const Multiplayer = () => {
           });
         }
       } catch (e) {
-        console.error(e);
+        console.error("[multiplayer.navigate] failed", e);
+        // Roll the click back so the user isn't penalized for a Wikipedia hiccup.
+        setClicks((c) => Math.max(0, c - 1));
+        toast.error("Couldn't load that article — try another link.");
       }
     },
     [matchId, match, clicks, path, playerId]
