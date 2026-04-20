@@ -1239,12 +1239,20 @@ const Results = ({
   opponent,
   playerId,
   onPlayAgain,
+  onLeave,
+  rematchRequested,
+  opponentRematch,
+  opponentLeft,
 }: {
   match: MatchRow | null;
   me: MatchPlayerRow | null;
   opponent: MatchPlayerRow | null;
   playerId: string;
   onPlayAgain: () => void;
+  onLeave: () => void;
+  rematchRequested: boolean;
+  opponentRematch: boolean;
+  opponentLeft: boolean;
 }) => {
   const winnerId = match?.winner_player_id;
   const iWon = winnerId === playerId;
@@ -1254,17 +1262,19 @@ const Results = ({
     ? "You win."
     : `${opponent?.display_name ?? "Opponent"} wins.`;
 
+  const opponentLabel = opponent?.display_name ?? "Opponent";
+
   return (
-    <main className="relative z-10 min-h-screen flex items-center justify-center px-6 py-16">
+    <main className="relative z-10 min-h-screen flex items-center justify-center px-4 sm:px-6 py-10 sm:py-16">
       <div className="max-w-4xl w-full grid gap-6">
-        <div className="paper-card p-10 text-center">
+        <div className="paper-card p-6 sm:p-10 text-center">
           <Trophy
             className={`w-10 h-10 mx-auto mb-4 ${
               iWon ? "text-primary" : "text-ink-faint"
             }`}
           />
           <div className="small-caps text-xs text-ink-soft mb-2">Final dispatch</div>
-          <h2 className="serif text-4xl font-extrabold mb-2">{verdict}</h2>
+          <h2 className="serif text-3xl sm:text-4xl font-extrabold mb-2">{verdict}</h2>
           <p className="serif italic text-muted-foreground mb-8">
             {match?.start_title} → <span className="text-primary">{match?.target_title}</span>
           </p>
@@ -1276,20 +1286,52 @@ const Results = ({
               winner={iWon}
             />
             <PlayerResult
-              title={opponent?.display_name ?? "Opponent"}
+              title={opponentLabel}
               player={opponent}
               winner={!!winnerId && !iWon}
             />
           </div>
 
-          <Button onClick={onPlayAgain} size="lg" className="mt-8">
-            <RotateCcw className="w-4 h-4 mr-2" /> Race again
-          </Button>
-          <Link to="/" className="ml-3">
-            <Button variant="outline" size="lg">
-              Single player
+          {/* Rematch handshake state */}
+          {opponentLeft && !rematchRequested && (
+            <div className="mt-6 paper-card p-3 text-sm text-destructive serif italic">
+              {opponentLabel} has left the game.
+            </div>
+          )}
+          {opponentRematch && !rematchRequested && (
+            <div className="mt-6 paper-card p-3 text-sm serif italic text-primary">
+              {opponentLabel} wants a rematch — accept to play again.
+            </div>
+          )}
+          {rematchRequested && !opponentRematch && !opponentLeft && (
+            <div className="mt-6 paper-card p-3 text-sm serif italic text-ink-soft flex items-center justify-center gap-2">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              Waiting for {opponentLabel} to accept…
+            </div>
+          )}
+
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <Button
+              onClick={onPlayAgain}
+              size="lg"
+              disabled={rematchRequested && !opponentRematch && !opponentLeft}
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              {opponentRematch && !rematchRequested
+                ? "Accept rematch"
+                : rematchRequested
+                ? "Waiting…"
+                : "Race again"}
             </Button>
-          </Link>
+            <Button variant="outline" size="lg" onClick={onLeave}>
+              Leave
+            </Button>
+            <Link to="/">
+              <Button variant="ghost" size="lg">
+                Single player
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     </main>
