@@ -639,17 +639,24 @@ const Multiplayer = () => {
     return "The press is quiet… for now.";
   })();
 
+  const targetTitleStr = targetSummary?.title ?? match?.target_title ?? "";
+
   return (
     <main className="relative z-10 min-h-screen flex flex-col">
-      <header className="border-b border-rule bg-card/60 backdrop-blur-sm">
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-3 flex items-center justify-between gap-3 sm:gap-6">
+      <header className="sticky top-0 z-30 border-b border-rule bg-card/95 backdrop-blur-md shadow-sm">
+        <div className={`max-w-6xl mx-auto px-3 sm:px-6 flex items-center justify-between gap-3 sm:gap-6 ${compact ? "py-1.5" : "py-3"}`}>
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <Link to="/" className="serif text-lg sm:text-2xl font-extrabold whitespace-nowrap">
+            <Link to="/" className={`serif font-extrabold whitespace-nowrap ${compact ? "text-sm sm:text-base" : "text-lg sm:text-2xl"}`}>
               Wiki<span className="italic text-primary">Race</span>
             </Link>
-            <span className="small-caps text-[10px] text-ink-faint hidden md:inline">
-              Live duel
-            </span>
+            {/* Target word — always visible (desktop) */}
+            <div className="hidden sm:flex items-center gap-1.5 pl-3 ml-1 border-l border-rule min-w-0">
+              <Target className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span className="small-caps text-[10px] text-ink-faint">Find</span>
+              <span className="serif text-sm font-bold text-primary truncate max-w-[200px]">
+                {targetTitleStr || "…"}
+              </span>
+            </div>
           </div>
           <div className="flex items-center gap-3 sm:gap-5 ticker">
             <Metric label="Time" value={formatTime(elapsed)} />
@@ -696,50 +703,69 @@ const Multiplayer = () => {
           </div>
         </div>
 
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-3 grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
-          <PlayerCard
-            label="You"
-            name={me?.display_name ?? name}
-            clicks={clicks}
-            currentTitle={null}
-            tensionLine={tensionLine}
-            finished={!!me?.finished_at}
-            self
-          />
-          <PlayerCard
-            label={opponent?.is_bot ? "Bot" : "Opponent"}
-            name={opponent?.display_name ?? "Waiting…"}
-            clicks={opponentClicks}
-            currentTitle={opponentTitle}
-            finished={opponentFinished}
-            isBot={opponent?.is_bot}
-            pulseKey={opponentHopKey}
-          />
+        {/* Mobile: show target on its own line so it never gets cut */}
+        <div className="sm:hidden max-w-6xl mx-auto px-3 pb-2 flex items-center gap-1.5">
+          <Target className="w-3 h-3 text-primary shrink-0" />
+          <span className="small-caps text-[9px] text-ink-faint">Find</span>
+          <span className="serif text-xs font-bold text-primary truncate">
+            {targetTitleStr || "…"}
+          </span>
         </div>
 
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-3 sm:pb-4">
-          <div className="paper-card flex flex-col sm:flex-row sm:items-stretch overflow-hidden">
-            <RailEnd
-              icon={<Flag className="w-3.5 h-3.5" />}
-              label="From"
-              title={startSummary?.title ?? match?.start_title ?? ""}
-              subtitle={startSummary?.extract ?? ""}
-            />
-            <div className="hidden sm:flex items-center px-4 text-ink-faint">
-              <ArrowRight className="w-4 h-4" />
+        {/* Player cards + rail — hidden when scrolled to free up reading space */}
+        {!compact && (
+          <>
+            <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-3 grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
+              <PlayerCard
+                label="You"
+                name={me?.display_name ?? name}
+                clicks={clicks}
+                currentTitle={null}
+                tensionLine={tensionLine}
+                finished={!!me?.finished_at}
+                self
+              />
+              <PlayerCard
+                label={opponent?.is_bot ? "Bot" : "Opponent"}
+                name={opponent?.display_name ?? "Waiting…"}
+                clicks={opponentClicks}
+                currentTitle={opponentTitle}
+                finished={opponentFinished}
+                isBot={opponent?.is_bot}
+                pulseKey={opponentHopKey}
+              />
             </div>
-            <div className="sm:hidden border-t border-rule flex items-center justify-center py-1 text-ink-faint">
-              <ArrowRight className="w-4 h-4 rotate-90" />
+
+            <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-3 sm:pb-4 hidden sm:block">
+              <div className="paper-card flex flex-col sm:flex-row sm:items-stretch overflow-hidden">
+                <RailEnd
+                  icon={<Flag className="w-3.5 h-3.5" />}
+                  label="From"
+                  title={startSummary?.title ?? match?.start_title ?? ""}
+                  subtitle={startSummary?.extract ?? ""}
+                />
+                <div className="hidden sm:flex items-center px-4 text-ink-faint">
+                  <ArrowRight className="w-4 h-4" />
+                </div>
+                <RailEnd
+                  icon={<Target className="w-3.5 h-3.5" />}
+                  label="To"
+                  title={targetSummary?.title ?? match?.target_title ?? ""}
+                  subtitle={targetSummary?.extract ?? ""}
+                  accent
+                />
+              </div>
             </div>
-            <RailEnd
-              icon={<Target className="w-3.5 h-3.5" />}
-              label="To"
-              title={targetSummary?.title ?? match?.target_title ?? ""}
-              subtitle={targetSummary?.extract ?? ""}
-              accent
-            />
+          </>
+        )}
+
+        {/* Compact: tiny opponent clicks chip so you don't lose track */}
+        {compact && opponent && (
+          <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-1.5 flex items-center justify-end gap-3 text-[11px] text-ink-soft">
+            <span className="serif italic">{opponent.display_name}</span>
+            <span className="mono ticker">{opponentClicks} clicks</span>
           </div>
-        </div>
+        )}
       </header>
 
       <div className="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 min-h-0">
