@@ -475,7 +475,7 @@ const Multiplayer = () => {
     [matchId, match, clicks, path, playerId]
   );
 
-  const playAgain = useCallback(() => {
+  const resetToLobby = useCallback(() => {
     botRunnerRef.current?.stop();
     botRunnerRef.current = null;
     setMatchId(null);
@@ -489,9 +489,63 @@ const Multiplayer = () => {
     setClicks(0);
     setElapsed(0);
     setHintsUsed(0);
+    setRematchRequested(false);
+    setOpponentRematch(false);
+    setOpponentLeft(false);
     finishedRef.current = false;
     setPhase("lobby");
   }, []);
+
+  const playAgain = useCallback(() => {
+    // Bots: instant rematch (no handshake needed).
+    if (opponent?.is_bot || !opponent) {
+      resetToLobby();
+      return;
+    }
+    if (opponentLeft) {
+      toast.error("Your opponent left the game.");
+      resetToLobby();
+      return;
+    }
+    // Broadcast our intent and wait for the opponent.
+    setRematchRequested(true);
+    channelRef.current?.sendRematch(playerId);
+  }, [opponent, opponentLeft, playerId, resetToLobby]);
+
+  // When BOTH players have requested a rematch, head back to the lobby together.
+  useEffect(() => {
+    if (rematchRequested && opponentRematch) {
+      toast.success("Both players are in. Find a new match!");
+      resetToLobby();
+    }
+  }, [rematchRequested, opponentRematch, resetToLobby]);
+
+  // If we're waiting on the opponent and they've now left, surface it.
+  useEffect(() => {
+    if (rematchRequested && opponentLeft) {
+      toast.error("Your opponent left the game.");
+      resetToLobby();
+    }
+  }, [rematchRequested, opponentLeft, resetToLobby]);
+
+  // Timeout the rematch wait after 15s.
+  useEffect(() => {
+    if (!rematchRequested || opponentRematch) return;
+    const id = window.setTimeout(() => {
+      toast.error("Your opponent didn't respond. They may have left.");
+      resetToLobby();
+    }, 15_000);
+    return () => window.clearTimeout(id);
+  }, [rematchRequested, opponentRematch, resetToLobby]);
+
+  // Tell the other side when WE leave (only meaningful in finished/racing states).
+  useEffect(() => {
+    return () => {
+      if (channelRef.current) {
+        channelRef.current.sendLeft(playerId);
+      }
+    };
+  }, [playerId]);
 
   // ─────────────────────────── UI ───────────────────────────
 
