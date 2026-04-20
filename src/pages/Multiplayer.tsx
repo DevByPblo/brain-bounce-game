@@ -71,6 +71,7 @@ import { HintCard } from "@/components/HintCard";
 import { recordRun } from "@/lib/achievements";
 import { celebrateBadges } from "@/lib/achievementToast";
 import { useBlockFind } from "@/hooks/use-block-find";
+import { useScrolled } from "@/hooks/use-scrolled";
 
 type Phase = "lobby" | "searching" | "room" | "briefing" | "racing" | "finished";
 type Mode = "quick" | "private";
@@ -116,6 +117,11 @@ const Multiplayer = () => {
   const finishedRef = useRef(false);
   const botRunnerRef = useRef<BotRunner | null>(null);
   const botFallbackRef = useRef<number | null>(null);
+  const channelRef = useRef<{ sendRematch: (id: string) => void; sendLeft: (id: string) => void } | null>(null);
+  const [rematchRequested, setRematchRequested] = useState(false);
+  const [opponentRematch, setOpponentRematch] = useState(false);
+  const [opponentLeft, setOpponentLeft] = useState(false);
+  const compact = useScrolled(60);
 
   const me = useMemo(
     () => players.find((p) => p.player_id === playerId) ?? null,
@@ -129,7 +135,7 @@ const Multiplayer = () => {
   // ─── Realtime subscription ───
   useEffect(() => {
     if (!matchId) return;
-    const unsub = subscribeMatch(matchId, {
+    const sub = subscribeMatch(matchId, {
       onMatch: (row) => setMatch(row),
       onPlayer: (row) => {
         setPlayers((prev) => {
@@ -140,14 +146,24 @@ const Multiplayer = () => {
           return next;
         });
       },
+      onRematch: (fromPid) => {
+        if (fromPid !== playerId) setOpponentRematch(true);
+      },
+      onLeft: (fromPid) => {
+        if (fromPid !== playerId) setOpponentLeft(true);
+      },
     });
+    channelRef.current = { sendRematch: sub.sendRematch, sendLeft: sub.sendLeft };
     void (async () => {
       const [m, ps] = await Promise.all([fetchMatch(matchId), fetchMatchPlayers(matchId)]);
       if (m) setMatch(m);
       if (ps.length) setPlayers(ps);
     })();
-    return unsub;
-  }, [matchId]);
+    return () => {
+      sub.unsubscribe();
+      channelRef.current = null;
+    };
+  }, [matchId, playerId]);
 
   // ─── Auto-fallback to a bot on quick match if nobody joins ───
   useEffect(() => {
@@ -453,13 +469,16 @@ const Multiplayer = () => {
           });
         }
       } catch (e) {
-        console.error(e);
+        console.error("[multiplayer.navigate] failed", e);
+        // Roll the click back so the user isn't penalized for a Wikipedia hiccup.
+        setClicks((c) => Math.max(0, c - 1));
+        toast.error("Couldn't load that article — try another link.");
       }
     },
     [matchId, match, clicks, path, playerId]
   );
 
-  const playAgain = useCallback(() => {
+  const resetToLobby = useCallback(() => {
     botRunnerRef.current?.stop();
     botRunnerRef.current = null;
     setMatchId(null);
@@ -473,9 +492,63 @@ const Multiplayer = () => {
     setClicks(0);
     setElapsed(0);
     setHintsUsed(0);
+    setRematchRequested(false);
+    setOpponentRematch(false);
+    setOpponentLeft(false);
     finishedRef.current = false;
     setPhase("lobby");
   }, []);
+
+  const playAgain = useCallback(() => {
+    // Bots: instant rematch (no handshake needed).
+    if (opponent?.is_bot || !opponent) {
+      resetToLobby();
+      return;
+    }
+    if (opponentLeft) {
+      toast.error("Your opponent left the game.");
+      resetToLobby();
+      return;
+    }
+    // Broadcast our intent and wait for the opponent.
+    setRematchRequested(true);
+    channelRef.current?.sendRematch(playerId);
+  }, [opponent, opponentLeft, playerId, resetToLobby]);
+
+  // When BOTH players have requested a rematch, head back to the lobby together.
+  useEffect(() => {
+    if (rematchRequested && opponentRematch) {
+      toast.success("Both players are in. Find a new match!");
+      resetToLobby();
+    }
+  }, [rematchRequested, opponentRematch, resetToLobby]);
+
+  // If we're waiting on the opponent and they've now left, surface it.
+  useEffect(() => {
+    if (rematchRequested && opponentLeft) {
+      toast.error("Your opponent left the game.");
+      resetToLobby();
+    }
+  }, [rematchRequested, opponentLeft, resetToLobby]);
+
+  // Timeout the rematch wait after 15s.
+  useEffect(() => {
+    if (!rematchRequested || opponentRematch) return;
+    const id = window.setTimeout(() => {
+      toast.error("Your opponent didn't respond. They may have left.");
+      resetToLobby();
+    }, 15_000);
+    return () => window.clearTimeout(id);
+  }, [rematchRequested, opponentRematch, resetToLobby]);
+
+  // Tell the other side when WE leave (only meaningful in finished/racing states).
+  useEffect(() => {
+    return () => {
+      if (channelRef.current) {
+        channelRef.current.sendLeft(playerId);
+      }
+    };
+  }, [playerId]);
 
   // ─────────────────────────── UI ───────────────────────────
 
@@ -539,6 +612,10 @@ const Multiplayer = () => {
         opponent={opponent}
         playerId={playerId}
         onPlayAgain={playAgain}
+        onLeave={resetToLobby}
+        rematchRequested={rematchRequested}
+        opponentRematch={opponentRematch}
+        opponentLeft={opponentLeft}
       />
     );
   }
@@ -565,17 +642,24 @@ const Multiplayer = () => {
     return "The press is quiet… for now.";
   })();
 
+  const targetTitleStr = targetSummary?.title ?? match?.target_title ?? "";
+
   return (
     <main className="relative z-10 min-h-screen flex flex-col">
-      <header className="border-b border-rule bg-card/60 backdrop-blur-sm">
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-3 flex items-center justify-between gap-3 sm:gap-6">
+      <header className="sticky top-0 z-30 border-b border-rule bg-card/95 backdrop-blur-md shadow-sm">
+        <div className={`max-w-6xl mx-auto px-3 sm:px-6 flex items-center justify-between gap-3 sm:gap-6 ${compact ? "py-1.5" : "py-3"}`}>
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <Link to="/" className="serif text-lg sm:text-2xl font-extrabold whitespace-nowrap">
+            <Link to="/" className={`serif font-extrabold whitespace-nowrap ${compact ? "text-sm sm:text-base" : "text-lg sm:text-2xl"}`}>
               Wiki<span className="italic text-primary">Race</span>
             </Link>
-            <span className="small-caps text-[10px] text-ink-faint hidden md:inline">
-              Live duel
-            </span>
+            {/* Target word — always visible (desktop) */}
+            <div className="hidden sm:flex items-center gap-1.5 pl-3 ml-1 border-l border-rule min-w-0">
+              <Target className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span className="small-caps text-[10px] text-ink-faint">Find</span>
+              <span className="serif text-sm font-bold text-primary truncate max-w-[200px]">
+                {targetTitleStr || "…"}
+              </span>
+            </div>
           </div>
           <div className="flex items-center gap-3 sm:gap-5 ticker">
             <Metric label="Time" value={formatTime(elapsed)} />
@@ -622,50 +706,69 @@ const Multiplayer = () => {
           </div>
         </div>
 
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-3 grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
-          <PlayerCard
-            label="You"
-            name={me?.display_name ?? name}
-            clicks={clicks}
-            currentTitle={null}
-            tensionLine={tensionLine}
-            finished={!!me?.finished_at}
-            self
-          />
-          <PlayerCard
-            label={opponent?.is_bot ? "Bot" : "Opponent"}
-            name={opponent?.display_name ?? "Waiting…"}
-            clicks={opponentClicks}
-            currentTitle={opponentTitle}
-            finished={opponentFinished}
-            isBot={opponent?.is_bot}
-            pulseKey={opponentHopKey}
-          />
+        {/* Mobile: show target on its own line so it never gets cut */}
+        <div className="sm:hidden max-w-6xl mx-auto px-3 pb-2 flex items-center gap-1.5">
+          <Target className="w-3 h-3 text-primary shrink-0" />
+          <span className="small-caps text-[9px] text-ink-faint">Find</span>
+          <span className="serif text-xs font-bold text-primary truncate">
+            {targetTitleStr || "…"}
+          </span>
         </div>
 
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-3 sm:pb-4">
-          <div className="paper-card flex flex-col sm:flex-row sm:items-stretch overflow-hidden">
-            <RailEnd
-              icon={<Flag className="w-3.5 h-3.5" />}
-              label="From"
-              title={startSummary?.title ?? match?.start_title ?? ""}
-              subtitle={startSummary?.extract ?? ""}
-            />
-            <div className="hidden sm:flex items-center px-4 text-ink-faint">
-              <ArrowRight className="w-4 h-4" />
+        {/* Player cards + rail — hidden when scrolled to free up reading space */}
+        {!compact && (
+          <>
+            <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-3 grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
+              <PlayerCard
+                label="You"
+                name={me?.display_name ?? name}
+                clicks={clicks}
+                currentTitle={null}
+                tensionLine={tensionLine}
+                finished={!!me?.finished_at}
+                self
+              />
+              <PlayerCard
+                label={opponent?.is_bot ? "Bot" : "Opponent"}
+                name={opponent?.display_name ?? "Waiting…"}
+                clicks={opponentClicks}
+                currentTitle={opponentTitle}
+                finished={opponentFinished}
+                isBot={opponent?.is_bot}
+                pulseKey={opponentHopKey}
+              />
             </div>
-            <div className="sm:hidden border-t border-rule flex items-center justify-center py-1 text-ink-faint">
-              <ArrowRight className="w-4 h-4 rotate-90" />
+
+            <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-3 sm:pb-4 hidden sm:block">
+              <div className="paper-card flex flex-col sm:flex-row sm:items-stretch overflow-hidden">
+                <RailEnd
+                  icon={<Flag className="w-3.5 h-3.5" />}
+                  label="From"
+                  title={startSummary?.title ?? match?.start_title ?? ""}
+                  subtitle={startSummary?.extract ?? ""}
+                />
+                <div className="hidden sm:flex items-center px-4 text-ink-faint">
+                  <ArrowRight className="w-4 h-4" />
+                </div>
+                <RailEnd
+                  icon={<Target className="w-3.5 h-3.5" />}
+                  label="To"
+                  title={targetSummary?.title ?? match?.target_title ?? ""}
+                  subtitle={targetSummary?.extract ?? ""}
+                  accent
+                />
+              </div>
             </div>
-            <RailEnd
-              icon={<Target className="w-3.5 h-3.5" />}
-              label="To"
-              title={targetSummary?.title ?? match?.target_title ?? ""}
-              subtitle={targetSummary?.extract ?? ""}
-              accent
-            />
+          </>
+        )}
+
+        {/* Compact: tiny opponent clicks chip so you don't lose track */}
+        {compact && opponent && (
+          <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-1.5 flex items-center justify-end gap-3 text-[11px] text-ink-soft">
+            <span className="serif italic">{opponent.display_name}</span>
+            <span className="mono ticker">{opponentClicks} clicks</span>
           </div>
-        </div>
+        )}
       </header>
 
       <div className="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 min-h-0">
@@ -1165,12 +1268,20 @@ const Results = ({
   opponent,
   playerId,
   onPlayAgain,
+  onLeave,
+  rematchRequested,
+  opponentRematch,
+  opponentLeft,
 }: {
   match: MatchRow | null;
   me: MatchPlayerRow | null;
   opponent: MatchPlayerRow | null;
   playerId: string;
   onPlayAgain: () => void;
+  onLeave: () => void;
+  rematchRequested: boolean;
+  opponentRematch: boolean;
+  opponentLeft: boolean;
 }) => {
   const winnerId = match?.winner_player_id;
   const iWon = winnerId === playerId;
@@ -1180,17 +1291,19 @@ const Results = ({
     ? "You win."
     : `${opponent?.display_name ?? "Opponent"} wins.`;
 
+  const opponentLabel = opponent?.display_name ?? "Opponent";
+
   return (
-    <main className="relative z-10 min-h-screen flex items-center justify-center px-6 py-16">
+    <main className="relative z-10 min-h-screen flex items-center justify-center px-4 sm:px-6 py-10 sm:py-16">
       <div className="max-w-4xl w-full grid gap-6">
-        <div className="paper-card p-10 text-center">
+        <div className="paper-card p-6 sm:p-10 text-center">
           <Trophy
             className={`w-10 h-10 mx-auto mb-4 ${
               iWon ? "text-primary" : "text-ink-faint"
             }`}
           />
           <div className="small-caps text-xs text-ink-soft mb-2">Final dispatch</div>
-          <h2 className="serif text-4xl font-extrabold mb-2">{verdict}</h2>
+          <h2 className="serif text-3xl sm:text-4xl font-extrabold mb-2">{verdict}</h2>
           <p className="serif italic text-muted-foreground mb-8">
             {match?.start_title} → <span className="text-primary">{match?.target_title}</span>
           </p>
@@ -1202,20 +1315,52 @@ const Results = ({
               winner={iWon}
             />
             <PlayerResult
-              title={opponent?.display_name ?? "Opponent"}
+              title={opponentLabel}
               player={opponent}
               winner={!!winnerId && !iWon}
             />
           </div>
 
-          <Button onClick={onPlayAgain} size="lg" className="mt-8">
-            <RotateCcw className="w-4 h-4 mr-2" /> Race again
-          </Button>
-          <Link to="/" className="ml-3">
-            <Button variant="outline" size="lg">
-              Single player
+          {/* Rematch handshake state */}
+          {opponentLeft && !rematchRequested && (
+            <div className="mt-6 paper-card p-3 text-sm text-destructive serif italic">
+              {opponentLabel} has left the game.
+            </div>
+          )}
+          {opponentRematch && !rematchRequested && (
+            <div className="mt-6 paper-card p-3 text-sm serif italic text-primary">
+              {opponentLabel} wants a rematch — accept to play again.
+            </div>
+          )}
+          {rematchRequested && !opponentRematch && !opponentLeft && (
+            <div className="mt-6 paper-card p-3 text-sm serif italic text-ink-soft flex items-center justify-center gap-2">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              Waiting for {opponentLabel} to accept…
+            </div>
+          )}
+
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <Button
+              onClick={onPlayAgain}
+              size="lg"
+              disabled={rematchRequested && !opponentRematch && !opponentLeft}
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              {opponentRematch && !rematchRequested
+                ? "Accept rematch"
+                : rematchRequested
+                ? "Waiting…"
+                : "Race again"}
             </Button>
-          </Link>
+            <Button variant="outline" size="lg" onClick={onLeave}>
+              Leave
+            </Button>
+            <Link to="/">
+              <Button variant="ghost" size="lg">
+                Single player
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     </main>

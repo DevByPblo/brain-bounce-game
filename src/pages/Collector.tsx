@@ -330,9 +330,9 @@ const Collector = () => {
           }}
         />
       )}
-      <header className="sticky top-0 z-30 border-b border-rule bg-card/95 backdrop-blur-md shadow-sm transition-all duration-200">
-        <div className={`max-w-6xl mx-auto px-6 flex items-center justify-between gap-6 transition-all duration-200 ${compact ? "py-1.5" : "py-3"}`}>
-          <Link to="/" className={`serif font-extrabold transition-all ${compact ? "text-base" : "text-2xl"}`}>
+      <header className="sticky top-0 z-30 border-b border-rule bg-card/95 backdrop-blur-md shadow-sm">
+        <div className={`max-w-6xl mx-auto px-6 flex items-center justify-between gap-6 ${compact ? "py-1.5" : "py-3"}`}>
+          <Link to="/" className={`serif font-extrabold ${compact ? "text-base" : "text-2xl"}`}>
             Wiki<span className="italic text-primary">Race</span>
           </Link>
           <div className="flex items-center gap-5 ticker">

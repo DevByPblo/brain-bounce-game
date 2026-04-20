@@ -174,10 +174,12 @@ export function subscribeMatch(
   handlers: {
     onMatch: (row: MatchRow) => void;
     onPlayer: (row: MatchPlayerRow) => void;
+    onRematch?: (fromPlayerId: string) => void;
+    onLeft?: (fromPlayerId: string) => void;
   }
-): () => void {
+): { unsubscribe: () => void; sendRematch: (playerId: string) => void; sendLeft: (playerId: string) => void } {
   const channel = supabase
-    .channel(`match:${matchId}`)
+    .channel(`match:${matchId}`, { config: { broadcast: { self: false } } })
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "matches", filter: `id=eq.${matchId}` },
@@ -205,9 +207,25 @@ export function subscribeMatch(
         });
       }
     )
+    .on("broadcast", { event: "rematch" }, ({ payload }) => {
+      const pid = (payload as { playerId?: string })?.playerId;
+      if (pid) handlers.onRematch?.(pid);
+    })
+    .on("broadcast", { event: "left" }, ({ payload }) => {
+      const pid = (payload as { playerId?: string })?.playerId;
+      if (pid) handlers.onLeft?.(pid);
+    })
     .subscribe();
 
-  return () => {
-    supabase.removeChannel(channel);
+  return {
+    unsubscribe: () => {
+      supabase.removeChannel(channel);
+    },
+    sendRematch: (playerId: string) => {
+      void channel.send({ type: "broadcast", event: "rematch", payload: { playerId } });
+    },
+    sendLeft: (playerId: string) => {
+      void channel.send({ type: "broadcast", event: "left", payload: { playerId } });
+    },
   };
 }

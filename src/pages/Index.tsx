@@ -358,6 +358,7 @@ const Index = () => {
     <main className="relative z-10 min-h-screen flex flex-col">
       {phase === "countdown" && (
         <Countdown
+          targetTitle={target?.title}
           onComplete={() => {
             startRef.current = Date.now();
             setElapsed(0);
@@ -366,10 +367,10 @@ const Index = () => {
         />
       )}
       {/* Sticky masthead — always visible while racing */}
-      <header className="sticky top-0 z-30 border-b border-rule bg-card/95 backdrop-blur-md shadow-sm transition-all duration-200">
-        <div className={`max-w-6xl mx-auto px-3 sm:px-6 flex items-center justify-between gap-3 sm:gap-6 transition-all duration-200 ${compact ? "py-1.5" : "py-2 sm:py-3"}`}>
+      <header className="sticky top-0 z-30 border-b border-rule bg-card/95 backdrop-blur-md shadow-sm">
+        <div className={`max-w-6xl mx-auto px-3 sm:px-6 flex items-center justify-between gap-3 sm:gap-6 ${compact ? "py-1.5" : "py-2 sm:py-3"}`}>
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <div className={`serif font-extrabold whitespace-nowrap transition-all ${compact ? "text-sm sm:text-base" : "text-base sm:text-xl"}`}>
+            <div className={`serif font-extrabold whitespace-nowrap ${compact ? "text-sm sm:text-base" : "text-base sm:text-xl"}`}>
               Wiki<span className="italic text-primary">Race</span>
             </div>
             {/* Target word — always visible */}
@@ -436,27 +437,29 @@ const Index = () => {
           </span>
         </div>
 
-        {/* Start → Target rail */}
-        <div className={`max-w-6xl mx-auto px-3 sm:px-6 pb-3 sm:pb-4 hidden sm:block transition-all overflow-hidden ${compact ? "max-h-0 !pb-0 opacity-0 pointer-events-none" : "max-h-[200px]"}`}>
-          <div className="paper-card flex flex-col sm:flex-row sm:items-stretch overflow-hidden">
-            <RailEnd
-              icon={<Flag className="w-3.5 h-3.5" />}
-              label="From"
-              title={start?.title ?? ""}
-              subtitle={start?.extract ?? ""}
-            />
-            <div className="hidden sm:flex items-center px-4 text-ink-faint">
-              <ArrowRight className="w-4 h-4" />
+        {/* Start → Target rail — hidden entirely once compact, no animation flap */}
+        {!compact && (
+          <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-3 sm:pb-4 hidden sm:block">
+            <div className="paper-card flex flex-col sm:flex-row sm:items-stretch overflow-hidden">
+              <RailEnd
+                icon={<Flag className="w-3.5 h-3.5" />}
+                label="From"
+                title={start?.title ?? ""}
+                subtitle={start?.extract ?? ""}
+              />
+              <div className="hidden sm:flex items-center px-4 text-ink-faint">
+                <ArrowRight className="w-4 h-4" />
+              </div>
+              <RailEnd
+                icon={<Target className="w-3.5 h-3.5" />}
+                label="To"
+                title={target?.title ?? ""}
+                subtitle={target?.extract ?? ""}
+                accent
+              />
             </div>
-            <RailEnd
-              icon={<Target className="w-3.5 h-3.5" />}
-              label="To"
-              title={target?.title ?? ""}
-              subtitle={target?.extract ?? ""}
-              accent
-            />
           </div>
-        </div>
+        )}
       </header>
 
       {/* Article + path */}

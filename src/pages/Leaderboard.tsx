@@ -88,22 +88,22 @@ const Leaderboard = () => {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[420px]">
+              <table className="w-full table-fixed">
                 <thead>
                   <tr className="border-b border-rule text-left bg-muted/40">
                     <th className="small-caps text-[10px] text-ink-soft px-2 sm:px-4 py-3 w-8 sm:w-10">#</th>
                     <th className="small-caps text-[10px] text-ink-soft px-2 sm:px-4 py-3">Player</th>
-                    <th className="small-caps text-[10px] text-ink-soft px-2 sm:px-4 py-3 text-right">
+                    <th className="small-caps text-[10px] text-ink-soft px-2 sm:px-4 py-3 text-right w-16 sm:w-24">
                       <span className="inline-flex items-center gap-1">
                         <Trophy className="w-3 h-3" /> Score
                       </span>
                     </th>
-                    <th className="small-caps text-[10px] text-ink-soft px-2 sm:px-4 py-3 text-right hidden md:table-cell">
+                    <th className="small-caps text-[10px] text-ink-soft px-2 sm:px-4 py-3 text-right hidden md:table-cell w-20">
                       <span className="inline-flex items-center gap-1">
                         <MousePointerClick className="w-3 h-3" /> Clicks
                       </span>
                     </th>
-                    <th className="small-caps text-[10px] text-ink-soft px-2 sm:px-4 py-3 text-right hidden md:table-cell">
+                    <th className="small-caps text-[10px] text-ink-soft px-2 sm:px-4 py-3 text-right hidden md:table-cell w-20">
                       <span className="inline-flex items-center gap-1">
                         <Clock className="w-3 h-3" /> Time
                       </span>
@@ -118,17 +118,17 @@ const Leaderboard = () => {
                         i < 3 ? "bg-primary/10" : ""
                       }`}
                     >
-                      <td className="px-2 sm:px-4 py-3 mono text-sm text-ink-soft">{i + 1}</td>
-                      <td className="px-2 sm:px-4 py-3 serif font-semibold text-ink truncate max-w-[140px] sm:max-w-none">
+                      <td className="px-2 sm:px-4 py-3 mono text-sm text-ink-soft align-top">{i + 1}</td>
+                      <td className="px-2 sm:px-4 py-3 serif font-semibold text-ink break-words align-top">
                         {s.display_name}
                       </td>
-                      <td className="px-2 sm:px-4 py-3 mono text-right ticker font-bold text-ink">
+                      <td className="px-2 sm:px-4 py-3 mono text-right ticker font-bold text-ink align-top whitespace-nowrap">
                         {s.score.toLocaleString()}
                       </td>
-                      <td className="px-2 sm:px-4 py-3 mono text-right text-ink text-sm hidden md:table-cell">
+                      <td className="px-2 sm:px-4 py-3 mono text-right text-ink text-sm hidden md:table-cell align-top">
                         {s.clicks}
                       </td>
-                      <td className="px-2 sm:px-4 py-3 mono text-right text-ink text-sm hidden md:table-cell">
+                      <td className="px-2 sm:px-4 py-3 mono text-right text-ink text-sm hidden md:table-cell align-top">
                         {s.time_ms ? formatTime(s.time_ms) : "—"}
                       </td>
                     </tr>
