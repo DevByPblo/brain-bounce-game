@@ -135,7 +135,7 @@ const Multiplayer = () => {
   // ─── Realtime subscription ───
   useEffect(() => {
     if (!matchId) return;
-    const unsub = subscribeMatch(matchId, {
+    const sub = subscribeMatch(matchId, {
       onMatch: (row) => setMatch(row),
       onPlayer: (row) => {
         setPlayers((prev) => {
@@ -146,14 +146,24 @@ const Multiplayer = () => {
           return next;
         });
       },
+      onRematch: (fromPid) => {
+        if (fromPid !== playerId) setOpponentRematch(true);
+      },
+      onLeft: (fromPid) => {
+        if (fromPid !== playerId) setOpponentLeft(true);
+      },
     });
+    channelRef.current = { sendRematch: sub.sendRematch, sendLeft: sub.sendLeft };
     void (async () => {
       const [m, ps] = await Promise.all([fetchMatch(matchId), fetchMatchPlayers(matchId)]);
       if (m) setMatch(m);
       if (ps.length) setPlayers(ps);
     })();
-    return unsub;
-  }, [matchId]);
+    return () => {
+      sub.unsubscribe();
+      channelRef.current = null;
+    };
+  }, [matchId, playerId]);
 
   // ─── Auto-fallback to a bot on quick match if nobody joins ───
   useEffect(() => {
