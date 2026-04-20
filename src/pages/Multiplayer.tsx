@@ -609,6 +609,10 @@ const Multiplayer = () => {
         opponent={opponent}
         playerId={playerId}
         onPlayAgain={playAgain}
+        onLeave={resetToLobby}
+        rematchRequested={rematchRequested}
+        opponentRematch={opponentRematch}
+        opponentLeft={opponentLeft}
       />
     );
   }
