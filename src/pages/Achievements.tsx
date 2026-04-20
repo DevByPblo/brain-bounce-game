@@ -1,12 +1,26 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Lock, Sparkles } from "lucide-react";
 import { BADGES, getStats, getUnlockedIds, type Badge } from "@/lib/achievements";
 import { BadgeIcon } from "@/components/BadgeIcon";
+import { useAuth } from "@/lib/auth";
+import { loadPlayerStats, type PlayerStats } from "@/lib/playerStats";
 
 const Achievements = () => {
   const unlocked = useMemo(() => new Set(getUnlockedIds()), []);
   const stats = useMemo(() => getStats(), []);
+  const { user, profile } = useAuth();
+  const [player, setPlayer] = useState<PlayerStats | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadPlayerStats(user?.id ?? null).then((p) => {
+      if (!cancelled) setPlayer(p);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const groups: { key: Badge["category"]; title: string; desc: string }[] = [
     { key: "milestone", title: "Milestones", desc: "Tally up the wins." },
@@ -16,6 +30,7 @@ const Achievements = () => {
 
   const earnedCount = unlocked.size;
   const totalCount = BADGES.length;
+  const displayName = profile?.display_name ?? "Anonymous reader";
 
   return (
     <main className="relative z-10 min-h-screen px-4 sm:px-6 py-10 sm:py-16">
@@ -27,7 +42,7 @@ const Achievements = () => {
           <ArrowLeft className="w-3 h-3" /> Back
         </Link>
 
-        <div className="text-center mb-10">
+        <div className="text-center mb-8">
           <div className="small-caps text-xs text-ink-soft mb-3">
             Vol. I · No. 7 · The trophy room
           </div>
@@ -38,8 +53,26 @@ const Achievements = () => {
             {earnedCount} of {totalCount} unlocked.
           </p>
           <div className="hairline my-6 mx-auto w-24" />
-          <div className="grid grid-cols-3 gap-3 max-w-md mx-auto">
-            <Stat label="Wins" value={String(stats.totalWins)} />
+        </div>
+
+        {/* Player banner — name, lifetime score, games played */}
+        <section className="paper-card p-5 sm:p-6 mb-6">
+          <div className="flex items-baseline justify-between gap-3 mb-4">
+            <div className="min-w-0">
+              <div className="small-caps text-[10px] text-ink-faint">Reader</div>
+              <div className="serif text-2xl font-extrabold truncate">{displayName}</div>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="small-caps text-[10px] text-ink-faint">
+                Score {player?.source === "online" ? "(synced)" : "(local)"}
+              </div>
+              <div className="serif text-3xl font-extrabold text-primary tabular-nums">
+                {player ? player.totalScore.toLocaleString() : "—"}
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <Stat label="Games" value={player ? String(player.gamesPlayed) : "—"} />
             <Stat label="Best clicks" value={stats.bestClicksRace?.toString() ?? "—"} />
             <Stat
               label="Best time"
@@ -50,7 +83,29 @@ const Achievements = () => {
               }
             />
           </div>
-        </div>
+        </section>
+
+        {/* Per-mode breakdown */}
+        {player && (
+          <section className="paper-card p-5 mb-10">
+            <div className="small-caps text-[10px] text-ink-faint mb-3">
+              Wins by mode
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {player.perMode.map((m) => (
+                <div
+                  key={m.mode}
+                  className="flex items-baseline justify-between border-b border-rule/60 pb-1.5"
+                >
+                  <span className="serif text-sm">{m.label}</span>
+                  <span className="serif text-base font-extrabold tabular-nums">
+                    {m.count}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {groups.map((g) => {
           const items = BADGES.filter((b) => b.category === g.key);
