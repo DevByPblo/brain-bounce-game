@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
+import { Target } from "lucide-react";
 
 type Props = {
   /** Called once after "Go!" finishes. Begin the actual race here. */
   onComplete: () => void;
+  /** Optional target word to keep visible during the focus moment. */
+  targetTitle?: string | null;
 };
 
 /**
  * Full-screen focused 3-2-1-Go countdown shown immediately before a race.
- * Uses paper-card aesthetic + scale-in animation per tick.
+ * Fully opaque so the article behind doesn't distract on laptops.
  */
-export const Countdown = ({ onComplete }: Props) => {
-  // 3 → 2 → 1 → 0 (rendered as "Go!"). After ~600ms on Go we call onComplete.
+export const Countdown = ({ onComplete, targetTitle }: Props) => {
   const [n, setN] = useState(3);
 
   useEffect(() => {
@@ -26,17 +28,27 @@ export const Countdown = ({ onComplete }: Props) => {
   const accent = n === 0;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/85 backdrop-blur-md animate-fade-in">
-      <div className="text-center">
-        <div className="small-caps text-xs text-ink-soft mb-4 tracking-widest">
-          {accent ? "" : "Get ready"}
-        </div>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background animate-fade-in">
+      <div className="text-center px-6 max-w-lg">
+        {targetTitle ? (
+          <div className="paper-card inline-flex items-center gap-2 px-4 py-2 mb-8">
+            <Target className="w-4 h-4 text-primary" />
+            <span className="small-caps text-[10px] text-ink-faint">Find</span>
+            <span className="serif text-base font-bold text-primary truncate max-w-[260px]">
+              {targetTitle}
+            </span>
+          </div>
+        ) : (
+          <div className="small-caps text-xs text-ink-soft mb-4 tracking-widest">
+            {accent ? "" : "Get ready"}
+          </div>
+        )}
         <div
           key={n}
           className={`serif font-extrabold leading-none animate-scale-in ${
             accent ? "text-primary" : "text-ink"
           }`}
-          style={{ fontSize: accent ? "10rem" : "12rem" }}
+          style={{ fontSize: accent ? "9rem" : "11rem" }}
         >
           {label}
         </div>
