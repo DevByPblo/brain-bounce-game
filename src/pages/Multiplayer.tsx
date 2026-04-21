@@ -1073,8 +1073,8 @@ const RoomWaiting = ({
     }
   };
   return (
-    <main className="relative z-10 min-h-screen flex items-center justify-center px-6 py-16">
-      <div className="max-w-md w-full text-center paper-card p-10">
+    <main className="relative z-10 min-h-screen flex items-center justify-center px-4 sm:px-6 py-16">
+      <div className="max-w-md w-full text-center paper-card p-6 sm:p-10">
         <Lock className="w-7 h-7 mx-auto text-primary mb-4" />
         <div className="small-caps text-xs text-ink-soft mb-2">Private room</div>
         <h2 className="serif text-3xl font-extrabold mb-2">Share your code</h2>
@@ -1084,9 +1084,9 @@ const RoomWaiting = ({
 
         <button
           onClick={copy}
-          className="group block w-full paper-card p-6 mb-5 hover:border-primary transition"
+          className="group block w-full paper-card p-4 sm:p-6 mb-5 hover:border-primary transition overflow-hidden"
         >
-          <div className="mono text-5xl font-extrabold tracking-[0.4em] text-primary">
+          <div className="mono text-3xl sm:text-5xl font-extrabold tracking-[0.2em] sm:tracking-[0.4em] text-primary break-all">
             {code}
           </div>
           <div className="mt-3 inline-flex items-center gap-1.5 small-caps text-[10px] text-ink-faint group-hover:text-primary">

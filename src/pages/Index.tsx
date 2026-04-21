@@ -886,8 +886,8 @@ const BoardColumn = ({
     ) : (
       <ol className="space-y-1.5">
         {entries.map((e, i) => (
-          <li key={e.id} className="text-xs flex items-baseline gap-2">
-            <span className="mono text-[10px] text-ink-faint w-4">
+          <li key={e.id} className="text-xs flex items-baseline gap-2 min-w-0">
+            <span className="mono text-[10px] text-ink-faint w-4 shrink-0">
               {i + 1}.
             </span>
             <div className="flex-1 min-w-0">
@@ -898,7 +898,9 @@ const BoardColumn = ({
                 {e.mode === "daily" ? "daily" : e.difficulty}
               </div>
             </div>
-            <span className="mono ticker font-semibold">{render(e)}</span>
+            <span className="mono font-semibold whitespace-nowrap shrink-0 tabular-nums">
+              {render(e)}
+            </span>
           </li>
         ))}
       </ol>
