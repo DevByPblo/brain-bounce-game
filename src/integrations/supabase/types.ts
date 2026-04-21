@@ -14,6 +14,121 @@ export type Database = {
   }
   public: {
     Tables: {
+      coop_matches: {
+        Row: {
+          created_at: string
+          duration_ms: number
+          finished_at: string | null
+          id: string
+          room_code: string | null
+          start_title: string
+          started_at: string | null
+          status: string
+          team_score: number
+          word_list: Json
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number
+          finished_at?: string | null
+          id?: string
+          room_code?: string | null
+          start_title: string
+          started_at?: string | null
+          status?: string
+          team_score?: number
+          word_list?: Json
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number
+          finished_at?: string | null
+          id?: string
+          room_code?: string | null
+          start_title?: string
+          started_at?: string | null
+          status?: string
+          team_score?: number
+          word_list?: Json
+        }
+        Relationships: []
+      }
+      coop_players: {
+        Row: {
+          chasing_word: string | null
+          claims: number
+          current_title: string | null
+          display_name: string
+          id: string
+          joined_at: string
+          match_id: string
+          player_id: string
+          score: number
+        }
+        Insert: {
+          chasing_word?: string | null
+          claims?: number
+          current_title?: string | null
+          display_name: string
+          id?: string
+          joined_at?: string
+          match_id: string
+          player_id: string
+          score?: number
+        }
+        Update: {
+          chasing_word?: string | null
+          claims?: number
+          current_title?: string | null
+          display_name?: string
+          id?: string
+          joined_at?: string
+          match_id?: string
+          player_id?: string
+          score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coop_players_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "coop_matches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coop_word_claims: {
+        Row: {
+          claimed_at: string
+          claimed_by: string
+          id: string
+          match_id: string
+          word: string
+        }
+        Insert: {
+          claimed_at?: string
+          claimed_by: string
+          id?: string
+          match_id: string
+          word: string
+        }
+        Update: {
+          claimed_at?: string
+          claimed_by?: string
+          id?: string
+          match_id?: string
+          word?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coop_word_claims_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "coop_matches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       match_players: {
         Row: {
           clicks: number
@@ -175,9 +290,29 @@ export type Database = {
         Args: { p_bot_name: string; p_match_id: string; p_player_id: string }
         Returns: string
       }
+      cancel_coop_match: {
+        Args: { p_match_id: string; p_player_id: string }
+        Returns: undefined
+      }
       cancel_match: {
         Args: { p_match_id: string; p_player_id: string }
         Returns: undefined
+      }
+      claim_coop_word: {
+        Args: { p_match_id: string; p_player_id: string; p_word: string }
+        Returns: boolean
+      }
+      create_coop_room: {
+        Args: {
+          p_display_name: string
+          p_player_id: string
+          p_start: string
+          p_word_list: Json
+        }
+        Returns: {
+          match_id: string
+          room_code: string
+        }[]
       }
       create_private_room:
         | {
@@ -205,6 +340,10 @@ export type Database = {
               room_code: string
             }[]
           }
+      finish_coop_match: {
+        Args: { p_match_id: string; p_player_id: string }
+        Returns: undefined
+      }
       finish_match: {
         Args: {
           p_clicks: number
@@ -214,6 +353,10 @@ export type Database = {
           p_time_ms: number
         }
         Returns: undefined
+      }
+      join_coop_room: {
+        Args: { p_code: string; p_display_name: string; p_player_id: string }
+        Returns: string
       }
       join_private_room:
         | {
@@ -263,6 +406,15 @@ export type Database = {
           p_current_title: string
           p_match_id: string
           p_path: Json
+          p_player_id: string
+        }
+        Returns: undefined
+      }
+      set_coop_chasing: {
+        Args: {
+          p_chasing_word: string
+          p_current_title: string
+          p_match_id: string
           p_player_id: string
         }
         Returns: undefined

@@ -14,6 +14,7 @@ import Leaderboard from "./pages/Leaderboard.tsx";
 import Collector from "./pages/Collector.tsx";
 import NoMove from "./pages/NoMove.tsx";
 import Achievements from "./pages/Achievements.tsx";
+import Coop from "./pages/Coop.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -48,6 +49,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/multiplayer" element={<Multiplayer />} />
+            <Route path="/coop" element={<Coop />} />
             <Route path="/collector" element={<Collector />} />
             <Route path="/nomove" element={<NoMove />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
