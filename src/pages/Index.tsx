@@ -817,19 +817,53 @@ const DiffCard = ({
 
 const Leaderboard = () => {
   const view = useMemo(() => getLeaderboardView(5), []);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 220);
+    return () => clearTimeout(t);
+  }, []);
   const empty =
     view.topScores.length === 0 &&
     view.fewestClicks.length === 0 &&
     view.fastestTimes.length === 0;
 
+  if (loading) {
+    return (
+      <div className="paper-card p-5 text-left">
+        <div className="flex items-center gap-2 mb-4">
+          <Medal className="w-4 h-4 text-primary" />
+          <div className="small-caps text-xs text-ink-soft">Local leaderboard</div>
+        </div>
+        <div className="grid md:grid-cols-3 gap-5">
+          {[0, 1, 2].map((c) => (
+            <div key={c} className="min-w-0">
+              <div className="h-3 w-24 bg-muted/60 rounded animate-pulse mb-3" />
+              <ol className="space-y-2">
+                {[0, 1, 2, 3, 4].map((r) => (
+                  <li key={r} className="flex items-baseline gap-2">
+                    <span className="h-2 w-3 bg-muted/50 rounded animate-pulse" />
+                    <span className="h-3 flex-1 bg-muted/40 rounded animate-pulse" />
+                    <span className="h-3 w-10 bg-muted/50 rounded animate-pulse" />
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   if (empty) {
     return (
-      <div className="paper-card p-6 text-center">
-        <div className="small-caps text-[10px] text-ink-faint mb-1">
+      <div className="paper-card p-8 text-center">
+        <Medal className="w-7 h-7 mx-auto text-primary/70 mb-3" />
+        <div className="small-caps text-[10px] text-ink-faint mb-2">
           Local leaderboard
         </div>
-        <p className="text-sm text-ink-soft">
-          No races run yet. Finish one to set a record.
+        <h3 className="serif text-lg font-bold mb-1">No records yet</h3>
+        <p className="text-sm text-ink-soft serif italic">
+          Finish your first race to set the standard.
         </p>
       </div>
     );
@@ -898,7 +932,7 @@ const BoardColumn = ({
                 {e.mode === "daily" ? "daily" : e.difficulty}
               </div>
             </div>
-            <span className="mono font-semibold whitespace-nowrap shrink-0 tabular-nums">
+            <span className="mono font-semibold whitespace-nowrap shrink-0 tabular-nums slashed-zero text-ink">
               {render(e)}
             </span>
           </li>
