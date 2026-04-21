@@ -39,6 +39,7 @@ import {
   Clock,
   MousePointerClick,
   Swords,
+  Users,
   Pencil,
   Share2,
   Check,
@@ -736,20 +737,37 @@ const IdleScreen = ({
 
       <div className="hairline my-10 mx-auto w-24" />
 
-      <Link to="/multiplayer" className="block">
-        <div className="paper-card p-5 text-left flex items-center gap-4 hover:translate-y-[-1px] transition-transform">
-          <div className="shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-            <Swords className="w-5 h-5" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="serif font-bold">Race a stranger live</div>
-            <div className="text-xs text-ink-soft">
-              Quick-match against another reader. First to the target wins.
+      <div className="grid sm:grid-cols-2 gap-3">
+        <Link to="/multiplayer" className="block">
+          <div className="paper-card p-5 text-left flex items-center gap-4 hover:translate-y-[-1px] transition-transform h-full">
+            <div className="shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <Swords className="w-5 h-5" />
             </div>
+            <div className="flex-1 min-w-0">
+              <div className="serif font-bold">Race a stranger live</div>
+              <div className="text-xs text-ink-soft">
+                Quick-match against another reader. First to the target wins.
+              </div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-ink-soft shrink-0" />
           </div>
-          <ArrowRight className="w-4 h-4 text-ink-soft shrink-0" />
-        </div>
-      </Link>
+        </Link>
+
+        <Link to="/coop" className="block">
+          <div className="paper-card p-5 text-left flex items-center gap-4 hover:translate-y-[-1px] transition-transform h-full">
+            <div className="shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <Users className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="serif font-bold">Co-op Time Attack</div>
+              <div className="text-xs text-ink-soft">
+                Team up: 5 minutes, 12 targets. Split the list — find as many as you can.
+              </div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-ink-soft shrink-0" />
+          </div>
+        </Link>
+      </div>
 
       <div className="mt-10">
         <Leaderboard />
