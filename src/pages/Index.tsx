@@ -852,7 +852,7 @@ const Leaderboard = () => {
           title="Fewest clicks"
           icon={<MousePointerClick className="w-3.5 h-3.5" />}
           entries={view.fewestClicks}
-          render={(e) => `${e.clicks} clicks`}
+          render={(e) => `${e.clicks}`}
         />
         <BoardColumn
           title="Fastest times"
@@ -876,7 +876,7 @@ const BoardColumn = ({
   entries: LeaderboardEntry[];
   render: (e: LeaderboardEntry) => string;
 }) => (
-  <div>
+  <div className="min-w-0">
     <div className="flex items-center gap-1.5 mb-2 text-ink-soft">
       {icon}
       <span className="small-caps text-[10px]">{title}</span>
