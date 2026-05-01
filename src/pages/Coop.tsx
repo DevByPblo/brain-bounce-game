@@ -655,6 +655,39 @@ const Stat = ({ label, value }: { label: string; value: string }) => (
 );
 
 // ────────────────────────────────────────────────────────────────────
+// Connection pill (top of playing/results)
+// ────────────────────────────────────────────────────────────────────
+const ConnectionPill = ({
+  partnerName, online, hasPartner,
+}: { partnerName: string; online: boolean; hasPartner: boolean }) => {
+  const ok = hasPartner && online;
+  return (
+    <div className="w-full bg-background/80 border-b border-rule/60">
+      <div className="max-w-6xl mx-auto px-3 sm:px-6 py-1 flex items-center justify-center gap-1.5 text-[11px] small-caps">
+        {ok ? (
+          <>
+            <span className="relative inline-flex w-2 h-2">
+              <span className="absolute inset-0 rounded-full bg-primary/50 animate-ping" />
+              <span className="relative inline-flex w-2 h-2 rounded-full bg-primary" />
+            </span>
+            <Wifi className="w-3 h-3 text-primary" />
+            <span className="text-ink-soft">Connected with</span>
+            <span className="text-ink font-semibold normal-case">{partnerName}</span>
+          </>
+        ) : (
+          <>
+            <WifiOff className="w-3 h-3 text-destructive" />
+            <span className="text-destructive">
+              {hasPartner ? `Reconnecting to ${partnerName}…` : "Waiting for partner…"}
+            </span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ────────────────────────────────────────────────────────────────────
 // Results
 // ────────────────────────────────────────────────────────────────────
 const Results = ({
