@@ -691,20 +691,25 @@ const ConnectionPill = ({
 // Results
 // ────────────────────────────────────────────────────────────────────
 const Results = ({
-  match, me, partner, claims, onLeave,
+  match, me, partner, claims, isHost, rematching, partnerOnline, onPlayAgain, onLeave,
 }: {
   match: CoopMatchRow | null;
   me: CoopPlayerRow | null;
   partner: CoopPlayerRow | null;
   claims: CoopClaimRow[];
+  isHost: boolean;
+  rematching: boolean;
+  partnerOnline: boolean;
+  onPlayAgain: () => void;
   onLeave: () => void;
 }) => {
-  const navigate = useNavigate();
   const wordList = match?.word_list ?? [];
   const swept = claims.length === wordList.length && wordList.length > 0;
+  const partnerName = partner?.display_name ?? "partner";
 
   return (
     <main className="relative z-10 min-h-screen px-4 sm:px-6 py-10 sm:py-14">
+      <ConnectionPill partnerName={partnerName} online={partnerOnline} hasPartner={!!partner} />
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-8">
           <Trophy className="w-10 h-10 mx-auto text-primary mb-4" />
@@ -712,6 +717,11 @@ const Results = ({
           <h1 className="serif text-4xl sm:text-5xl font-extrabold">
             {swept ? "Clean sweep!" : "Round complete"}
           </h1>
+          {match?.round_number ? (
+            <div className="small-caps text-[10px] text-ink-faint mt-2">
+              Round {match.round_number}
+            </div>
+          ) : null}
           <p className="serif italic text-ink-soft mt-3">
             Team score
           </p>
@@ -767,13 +777,38 @@ const Results = ({
         </div>
 
         <div className="flex gap-3 justify-center flex-wrap">
-          <Button onClick={() => navigate("/coop")} className="min-w-[140px]" variant="secondary">
-            New room
-          </Button>
+          {isHost ? (
+            <Button
+              onClick={onPlayAgain}
+              disabled={rematching || !partner}
+              className="min-w-[180px]"
+            >
+              {rematching ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Starting…</>
+              ) : (
+                "Play again"
+              )}
+            </Button>
+          ) : (
+            <div className="paper-card px-4 py-3 inline-flex items-center gap-2 text-sm text-ink-soft">
+              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+              Waiting for {partnerName} to start the next round…
+            </div>
+          )}
           <Button onClick={onLeave} variant="outline" className="min-w-[140px]">
-            Back to lobby
+            Leave room
           </Button>
         </div>
+        {isHost && !partner && (
+          <p className="text-center text-[11px] text-ink-faint mt-3 serif italic">
+            Your partner left — leave the room to start a new one.
+          </p>
+        )}
+        {isHost && partner && (
+          <p className="text-center text-[11px] text-ink-faint mt-3 serif italic">
+            Next round: {partnerName} hosts.
+          </p>
+        )}
       </div>
     </main>
   );
