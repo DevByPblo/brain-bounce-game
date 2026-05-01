@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  ArrowLeft, Bot, Check, Copy, Loader2, Lock, Target, Timer, Trophy, Users, X,
+  ArrowLeft, Check, Copy, Loader2, Lock, Timer, Trophy, Users, Wifi, WifiOff, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import {
 import { getPlayerId, getPlayerName, setPlayerName } from "@/lib/player";
 import {
   cancelCoopMatch, claimCoopWord, createCoopRoom, fetchCoopClaims, fetchCoopMatch,
-  fetchCoopPlayers, finishCoopMatch, joinCoopRoom, setCoopChasing, subscribeCoop,
+  fetchCoopPlayers, finishCoopMatch, joinCoopRoom, rematchCoopMatch, setCoopChasing, subscribeCoop,
   type CoopClaimRow, type CoopMatchRow, type CoopPlayerRow,
 } from "@/lib/coop";
 import { toast } from "sonner";
@@ -43,6 +43,8 @@ const Coop = () => {
   const [match, setMatch] = useState<CoopMatchRow | null>(null);
   const [players, setPlayers] = useState<CoopPlayerRow[]>([]);
   const [claims, setClaims] = useState<CoopClaimRow[]>([]);
+  const [rematching, setRematching] = useState(false);
+  const [partnerOnline, setPartnerOnline] = useState(false);
 
   const [startSummary, setStartSummary] = useState<WikiSummary | null>(null);
   const [articleHtml, setArticleHtml] = useState("");
@@ -54,6 +56,7 @@ const Coop = () => {
 
   const me = players.find((p) => p.player_id === playerId) ?? null;
   const partner = players.find((p) => p.player_id !== playerId) ?? null;
+  const isHost = !!match && match.host_player_id === playerId;
 
   // ─── Realtime subscription ───
   useEffect(() => {
@@ -72,6 +75,45 @@ const Coop = () => {
     });
     return () => sub.unsubscribe();
   }, [matchId]);
+
+  // ─── Presence: heartbeat so each side knows the other is connected ───
+  useEffect(() => {
+    if (!matchId) { setPartnerOnline(false); return; }
+    const channel = supabase.channel(`coop-presence:${matchId}`, {
+      config: { presence: { key: playerId } },
+    });
+    channel.on("presence", { event: "sync" }, () => {
+      const state = channel.presenceState() as Record<string, unknown[]>;
+      const others = Object.keys(state).filter((k) => k !== playerId);
+      setPartnerOnline(others.length > 0);
+    });
+    channel.subscribe(async (status) => {
+      if (status === "SUBSCRIBED") {
+        await channel.track({ at: Date.now() });
+      }
+    });
+    return () => {
+      void supabase.removeChannel(channel);
+      setPartnerOnline(false);
+    };
+  }, [matchId, playerId]);
+
+  // ─── Auto-follow rematch chain (host or partner) ───
+  useEffect(() => {
+    if (!match?.next_match_id) return;
+    if (match.next_match_id === matchId) return;
+    // Reset round-local state and switch to the new match.
+    setClaims([]);
+    setPlayers([]);
+    setStartSummary(null);
+    setArticleHtml("");
+    setCurrentTitle("");
+    setChasing(null);
+    setElapsed(0);
+    setRematching(false);
+    setMatchId(match.next_match_id);
+    setPhase("countdown");
+  }, [match?.next_match_id, matchId]);
 
   // ─── Move from room → countdown when both players join (or solo after timer) ───
   useEffect(() => {
@@ -195,6 +237,30 @@ const Coop = () => {
     setPhase("lobby");
   }, [matchId, playerId]);
 
+  // ─── Host action: start a new round in the same room ───
+  const playAgain = useCallback(async () => {
+    if (!matchId || !isHost) return;
+    setRematching(true);
+    try {
+      const start = await getRandomTitle();
+      const wordList: string[] = [];
+      const seen = new Set<string>([normaliseTitle(start)]);
+      while (wordList.length < WORD_COUNT) {
+        const t = await getRandomTitle();
+        const k = normaliseTitle(t);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        wordList.push(t);
+      }
+      await rematchCoopMatch({ matchId, playerId, start, wordList });
+      // Realtime onMatch (next_match_id) triggers the auto-follow effect.
+    } catch (e) {
+      console.error(e);
+      toast.error("Couldn't start a new round.");
+      setRematching(false);
+    }
+  }, [matchId, playerId, isHost]);
+
   // ─── Navigate links inside article ───
   const navigate = useCallback(async (title: string) => {
     if (!matchId || phase !== "playing") return;
@@ -273,6 +339,7 @@ const Coop = () => {
         currentTitle={currentTitle}
         startSummary={startSummary}
         chasing={chasing}
+        partnerOnline={partnerOnline}
         onNavigate={navigate}
         onPickChasing={pickChasing}
         onLeave={leave}
@@ -286,6 +353,10 @@ const Coop = () => {
       me={me}
       partner={partner}
       claims={claims}
+      isHost={isHost}
+      rematching={rematching}
+      partnerOnline={partnerOnline}
+      onPlayAgain={playAgain}
       onLeave={leave}
     />
   );
