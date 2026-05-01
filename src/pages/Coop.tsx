@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   ArrowLeft, Check, Copy, Loader2, Lock, Timer, Trophy, Users, Wifi, WifiOff, X,
 } from "lucide-react";
