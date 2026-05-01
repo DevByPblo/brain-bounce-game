@@ -14,6 +14,9 @@ export type CoopMatchRow = {
   started_at: string | null;
   finished_at: string | null;
   team_score: number;
+  host_player_id: string | null;
+  round_number: number;
+  next_match_id: string | null;
 };
 
 export type CoopPlayerRow = {
@@ -112,6 +115,22 @@ export async function finishCoopMatch(matchId: string, playerId: string): Promis
 
 export async function cancelCoopMatch(matchId: string, playerId: string): Promise<void> {
   await supabase.rpc("cancel_coop_match", { p_match_id: matchId, p_player_id: playerId });
+}
+
+export async function rematchCoopMatch(args: {
+  matchId: string;
+  playerId: string;
+  start: string;
+  wordList: string[];
+}): Promise<string> {
+  const { data, error } = await supabase.rpc("rematch_coop_match", {
+    p_match_id: args.matchId,
+    p_player_id: args.playerId,
+    p_start: args.start,
+    p_word_list: args.wordList,
+  });
+  if (error) throw error;
+  return data as unknown as string;
 }
 
 export async function fetchCoopMatch(matchId: string): Promise<CoopMatchRow | null> {

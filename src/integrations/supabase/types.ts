@@ -19,8 +19,11 @@ export type Database = {
           created_at: string
           duration_ms: number
           finished_at: string | null
+          host_player_id: string | null
           id: string
+          next_match_id: string | null
           room_code: string | null
+          round_number: number
           start_title: string
           started_at: string | null
           status: string
@@ -31,8 +34,11 @@ export type Database = {
           created_at?: string
           duration_ms?: number
           finished_at?: string | null
+          host_player_id?: string | null
           id?: string
+          next_match_id?: string | null
           room_code?: string | null
+          round_number?: number
           start_title: string
           started_at?: string | null
           status?: string
@@ -43,8 +49,11 @@ export type Database = {
           created_at?: string
           duration_ms?: number
           finished_at?: string | null
+          host_player_id?: string | null
           id?: string
+          next_match_id?: string | null
           room_code?: string | null
+          round_number?: number
           start_title?: string
           started_at?: string | null
           status?: string
@@ -399,6 +408,15 @@ export type Database = {
       migrate_anonymous_scores: {
         Args: { p_from_user: string }
         Returns: number
+      }
+      rematch_coop_match: {
+        Args: {
+          p_match_id: string
+          p_player_id: string
+          p_start: string
+          p_word_list: Json
+        }
+        Returns: string
       }
       report_progress: {
         Args: {

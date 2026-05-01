@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
-  ArrowLeft, Bot, Check, Copy, Loader2, Lock, Target, Timer, Trophy, Users, X,
+  ArrowLeft, Check, Copy, Loader2, Lock, Timer, Trophy, Users, Wifi, WifiOff, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import {
 import { getPlayerId, getPlayerName, setPlayerName } from "@/lib/player";
 import {
   cancelCoopMatch, claimCoopWord, createCoopRoom, fetchCoopClaims, fetchCoopMatch,
-  fetchCoopPlayers, finishCoopMatch, joinCoopRoom, setCoopChasing, subscribeCoop,
+  fetchCoopPlayers, finishCoopMatch, joinCoopRoom, rematchCoopMatch, setCoopChasing, subscribeCoop,
   type CoopClaimRow, type CoopMatchRow, type CoopPlayerRow,
 } from "@/lib/coop";
 import { toast } from "sonner";
@@ -20,6 +20,7 @@ import { setRaceActive } from "@/hooks/use-race-active";
 import { useBlockFind } from "@/hooks/use-block-find";
 import { Countdown } from "@/components/Countdown";
 import { useScrolled } from "@/hooks/use-scrolled";
+import { supabase } from "@/integrations/supabase/client";
 
 type Phase = "lobby" | "creating" | "room" | "countdown" | "playing" | "finished";
 
@@ -43,6 +44,8 @@ const Coop = () => {
   const [match, setMatch] = useState<CoopMatchRow | null>(null);
   const [players, setPlayers] = useState<CoopPlayerRow[]>([]);
   const [claims, setClaims] = useState<CoopClaimRow[]>([]);
+  const [rematching, setRematching] = useState(false);
+  const [partnerOnline, setPartnerOnline] = useState(false);
 
   const [startSummary, setStartSummary] = useState<WikiSummary | null>(null);
   const [articleHtml, setArticleHtml] = useState("");
@@ -54,6 +57,7 @@ const Coop = () => {
 
   const me = players.find((p) => p.player_id === playerId) ?? null;
   const partner = players.find((p) => p.player_id !== playerId) ?? null;
+  const isHost = !!match && match.host_player_id === playerId;
 
   // ─── Realtime subscription ───
   useEffect(() => {
@@ -72,6 +76,45 @@ const Coop = () => {
     });
     return () => sub.unsubscribe();
   }, [matchId]);
+
+  // ─── Presence: heartbeat so each side knows the other is connected ───
+  useEffect(() => {
+    if (!matchId) { setPartnerOnline(false); return; }
+    const channel = supabase.channel(`coop-presence:${matchId}`, {
+      config: { presence: { key: playerId } },
+    });
+    channel.on("presence", { event: "sync" }, () => {
+      const state = channel.presenceState() as Record<string, unknown[]>;
+      const others = Object.keys(state).filter((k) => k !== playerId);
+      setPartnerOnline(others.length > 0);
+    });
+    channel.subscribe(async (status) => {
+      if (status === "SUBSCRIBED") {
+        await channel.track({ at: Date.now() });
+      }
+    });
+    return () => {
+      void supabase.removeChannel(channel);
+      setPartnerOnline(false);
+    };
+  }, [matchId, playerId]);
+
+  // ─── Auto-follow rematch chain (host or partner) ───
+  useEffect(() => {
+    if (!match?.next_match_id) return;
+    if (match.next_match_id === matchId) return;
+    // Reset round-local state and switch to the new match.
+    setClaims([]);
+    setPlayers([]);
+    setStartSummary(null);
+    setArticleHtml("");
+    setCurrentTitle("");
+    setChasing(null);
+    setElapsed(0);
+    setRematching(false);
+    setMatchId(match.next_match_id);
+    setPhase("countdown");
+  }, [match?.next_match_id, matchId]);
 
   // ─── Move from room → countdown when both players join (or solo after timer) ───
   useEffect(() => {
@@ -195,6 +238,30 @@ const Coop = () => {
     setPhase("lobby");
   }, [matchId, playerId]);
 
+  // ─── Host action: start a new round in the same room ───
+  const playAgain = useCallback(async () => {
+    if (!matchId || !isHost) return;
+    setRematching(true);
+    try {
+      const start = await getRandomTitle();
+      const wordList: string[] = [];
+      const seen = new Set<string>([normaliseTitle(start)]);
+      while (wordList.length < WORD_COUNT) {
+        const t = await getRandomTitle();
+        const k = normaliseTitle(t);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        wordList.push(t);
+      }
+      await rematchCoopMatch({ matchId, playerId, start, wordList });
+      // Realtime onMatch (next_match_id) triggers the auto-follow effect.
+    } catch (e) {
+      console.error(e);
+      toast.error("Couldn't start a new round.");
+      setRematching(false);
+    }
+  }, [matchId, playerId, isHost]);
+
   // ─── Navigate links inside article ───
   const navigate = useCallback(async (title: string) => {
     if (!matchId || phase !== "playing") return;
@@ -273,6 +340,7 @@ const Coop = () => {
         currentTitle={currentTitle}
         startSummary={startSummary}
         chasing={chasing}
+        partnerOnline={partnerOnline}
         onNavigate={navigate}
         onPickChasing={pickChasing}
         onLeave={leave}
@@ -286,6 +354,10 @@ const Coop = () => {
       me={me}
       partner={partner}
       claims={claims}
+      isHost={isHost}
+      rematching={rematching}
+      partnerOnline={partnerOnline}
+      onPlayAgain={playAgain}
       onLeave={leave}
     />
   );
@@ -421,7 +493,7 @@ const RoomWaiting = ({ code, onCancel }: { code: string; onCancel: () => void })
 // ────────────────────────────────────────────────────────────────────
 const PlayingScreen = ({
   match, me, partner, claims, elapsed, articleHtml, currentTitle, startSummary,
-  chasing, onNavigate, onPickChasing, onLeave,
+  chasing, partnerOnline, onNavigate, onPickChasing, onLeave,
 }: {
   match: CoopMatchRow | null;
   me: CoopPlayerRow | null;
@@ -432,6 +504,7 @@ const PlayingScreen = ({
   currentTitle: string;
   startSummary: WikiSummary | null;
   chasing: string | null;
+  partnerOnline: boolean;
   onNavigate: (title: string) => void;
   onPickChasing: (word: string) => void;
   onLeave: () => void;
@@ -441,10 +514,12 @@ const PlayingScreen = ({
   const remaining = Math.max(0, DURATION_MS - elapsed);
   const claimedMap = new Map(claims.map((c) => [normaliseTitle(c.word), c]));
   const partnerChasing = partner?.chasing_word ?? null;
+  const partnerName = partner?.display_name ?? "partner";
 
   return (
     <main className="relative z-10 min-h-screen pb-12">
       <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-rule">
+        <ConnectionPill partnerName={partnerName} online={partnerOnline} hasPartner={!!partner} />
         <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2 sm:py-3 flex items-center gap-3">
           <button
             onClick={onLeave}
@@ -580,23 +655,61 @@ const Stat = ({ label, value }: { label: string; value: string }) => (
 );
 
 // ────────────────────────────────────────────────────────────────────
+// Connection pill (top of playing/results)
+// ────────────────────────────────────────────────────────────────────
+const ConnectionPill = ({
+  partnerName, online, hasPartner,
+}: { partnerName: string; online: boolean; hasPartner: boolean }) => {
+  const ok = hasPartner && online;
+  return (
+    <div className="w-full bg-background/80 border-b border-rule/60">
+      <div className="max-w-6xl mx-auto px-3 sm:px-6 py-1 flex items-center justify-center gap-1.5 text-[11px] small-caps">
+        {ok ? (
+          <>
+            <span className="relative inline-flex w-2 h-2">
+              <span className="absolute inset-0 rounded-full bg-primary/50 animate-ping" />
+              <span className="relative inline-flex w-2 h-2 rounded-full bg-primary" />
+            </span>
+            <Wifi className="w-3 h-3 text-primary" />
+            <span className="text-ink-soft">Connected with</span>
+            <span className="text-ink font-semibold normal-case">{partnerName}</span>
+          </>
+        ) : (
+          <>
+            <WifiOff className="w-3 h-3 text-destructive" />
+            <span className="text-destructive">
+              {hasPartner ? `Reconnecting to ${partnerName}…` : "Waiting for partner…"}
+            </span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ────────────────────────────────────────────────────────────────────
 // Results
 // ────────────────────────────────────────────────────────────────────
 const Results = ({
-  match, me, partner, claims, onLeave,
+  match, me, partner, claims, isHost, rematching, partnerOnline, onPlayAgain, onLeave,
 }: {
   match: CoopMatchRow | null;
   me: CoopPlayerRow | null;
   partner: CoopPlayerRow | null;
   claims: CoopClaimRow[];
+  isHost: boolean;
+  rematching: boolean;
+  partnerOnline: boolean;
+  onPlayAgain: () => void;
   onLeave: () => void;
 }) => {
-  const navigate = useNavigate();
   const wordList = match?.word_list ?? [];
   const swept = claims.length === wordList.length && wordList.length > 0;
+  const partnerName = partner?.display_name ?? "partner";
 
   return (
     <main className="relative z-10 min-h-screen px-4 sm:px-6 py-10 sm:py-14">
+      <ConnectionPill partnerName={partnerName} online={partnerOnline} hasPartner={!!partner} />
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-8">
           <Trophy className="w-10 h-10 mx-auto text-primary mb-4" />
@@ -604,6 +717,11 @@ const Results = ({
           <h1 className="serif text-4xl sm:text-5xl font-extrabold">
             {swept ? "Clean sweep!" : "Round complete"}
           </h1>
+          {match?.round_number ? (
+            <div className="small-caps text-[10px] text-ink-faint mt-2">
+              Round {match.round_number}
+            </div>
+          ) : null}
           <p className="serif italic text-ink-soft mt-3">
             Team score
           </p>
@@ -659,13 +777,38 @@ const Results = ({
         </div>
 
         <div className="flex gap-3 justify-center flex-wrap">
-          <Button onClick={() => navigate("/coop")} className="min-w-[140px]" variant="secondary">
-            New room
-          </Button>
+          {isHost ? (
+            <Button
+              onClick={onPlayAgain}
+              disabled={rematching || !partner}
+              className="min-w-[180px]"
+            >
+              {rematching ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Starting…</>
+              ) : (
+                "Play again"
+              )}
+            </Button>
+          ) : (
+            <div className="paper-card px-4 py-3 inline-flex items-center gap-2 text-sm text-ink-soft">
+              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+              Waiting for {partnerName} to start the next round…
+            </div>
+          )}
           <Button onClick={onLeave} variant="outline" className="min-w-[140px]">
-            Back to lobby
+            Leave room
           </Button>
         </div>
+        {isHost && !partner && (
+          <p className="text-center text-[11px] text-ink-faint mt-3 serif italic">
+            Your partner left — leave the room to start a new one.
+          </p>
+        )}
+        {isHost && partner && (
+          <p className="text-center text-[11px] text-ink-faint mt-3 serif italic">
+            Next round: {partnerName} hosts.
+          </p>
+        )}
       </div>
     </main>
   );
