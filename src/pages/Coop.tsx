@@ -493,7 +493,7 @@ const RoomWaiting = ({ code, onCancel }: { code: string; onCancel: () => void })
 // ────────────────────────────────────────────────────────────────────
 const PlayingScreen = ({
   match, me, partner, claims, elapsed, articleHtml, currentTitle, startSummary,
-  chasing, onNavigate, onPickChasing, onLeave,
+  chasing, partnerOnline, onNavigate, onPickChasing, onLeave,
 }: {
   match: CoopMatchRow | null;
   me: CoopPlayerRow | null;
@@ -504,6 +504,7 @@ const PlayingScreen = ({
   currentTitle: string;
   startSummary: WikiSummary | null;
   chasing: string | null;
+  partnerOnline: boolean;
   onNavigate: (title: string) => void;
   onPickChasing: (word: string) => void;
   onLeave: () => void;
@@ -513,10 +514,12 @@ const PlayingScreen = ({
   const remaining = Math.max(0, DURATION_MS - elapsed);
   const claimedMap = new Map(claims.map((c) => [normaliseTitle(c.word), c]));
   const partnerChasing = partner?.chasing_word ?? null;
+  const partnerName = partner?.display_name ?? "partner";
 
   return (
     <main className="relative z-10 min-h-screen pb-12">
       <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-rule">
+        <ConnectionPill partnerName={partnerName} online={partnerOnline} hasPartner={!!partner} />
         <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2 sm:py-3 flex items-center gap-3">
           <button
             onClick={onLeave}
