@@ -20,6 +20,7 @@ import { setRaceActive } from "@/hooks/use-race-active";
 import { useBlockFind } from "@/hooks/use-block-find";
 import { Countdown } from "@/components/Countdown";
 import { useScrolled } from "@/hooks/use-scrolled";
+import { supabase } from "@/integrations/supabase/client";
 
 type Phase = "lobby" | "creating" | "room" | "countdown" | "playing" | "finished";
 
