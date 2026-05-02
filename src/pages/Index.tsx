@@ -64,6 +64,7 @@ import { celebrateBadges } from "@/lib/achievementToast";
 import { useScrolled } from "@/hooks/use-scrolled";
 import { useBlockFind } from "@/hooks/use-block-find";
 import { Countdown } from "@/components/Countdown";
+import { BounceButton, countBounceProgress } from "@/components/BounceButton";
 
 type Phase = "idle" | "loading" | "countdown" | "playing" | "won";
 
@@ -305,6 +306,31 @@ const Index = () => {
     [target, path, clicks, undos, finishGame]
   );
 
+  /** Rescue jump: append a random article to the path without checking the target. */
+  const bounceTo = useCallback(
+    async (title: string) => {
+      try {
+        const art = await getArticleHtml(title);
+        const newPath = [...path, { title: art.title, html: art.html }];
+        setCurrentTitle(art.title);
+        setArticleHtml(art.html);
+        setPath(newPath);
+        setClicks((c) => c + 1);
+        if (target && normaliseTitle(art.title) === normaliseTitle(target.title)) {
+          finishGame(clicks + 1, Date.now() - startRef.current, undos, newPath);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    },
+    [path, target, clicks, undos, finishGame]
+  );
+
+  const bounceProgress = useMemo(
+    () => countBounceProgress(path.map((p) => p.title)),
+    [path]
+  );
+
   /** Jump back to the article at index `i` in the path. Costs an undo penalty per step removed. */
   const undoTo = useCallback(
     (i: number) => {
@@ -388,6 +414,7 @@ const Index = () => {
             <Metric label="Time" value={formatTime(elapsed)} />
             {undos > 0 && <Metric label="Undos" value={String(undos)} />}
             <Metric label="Score" value={score.toLocaleString()} accent />
+            <BounceButton progress={bounceProgress} onBounce={bounceTo} />
             <Button
               variant="outline"
               size="sm"

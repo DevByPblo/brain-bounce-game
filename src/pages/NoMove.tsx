@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { useScrolled } from "@/hooks/use-scrolled";
 import { useBlockFind } from "@/hooks/use-block-find";
 import { Countdown } from "@/components/Countdown";
+import { BounceButton, countBounceProgress } from "@/components/BounceButton";
 
 type Phase = "idle" | "loading" | "countdown" | "playing" | "won";
 
@@ -50,6 +51,7 @@ const NoMove = () => {
   const [articleHtml, setArticleHtml] = useState("");
   const [clicks, setClicks] = useState(0);
   const [elapsed, setElapsed] = useState(0);
+  const [visits, setVisits] = useState<string[]>([]);
   const startedAt = useRef(0);
   const submittedRef = useRef(false);
   const { user } = useAuth();
@@ -84,6 +86,7 @@ const NoMove = () => {
       setTarget(tSum);
       setCurrentTitle(art.title);
       setArticleHtml(art.html);
+      setVisits([art.title]);
       setPhase("countdown");
     } catch (e) {
       console.error(e);
@@ -129,6 +132,7 @@ const NoMove = () => {
       const art = await getArticleHtml(title);
       setCurrentTitle(art.title);
       setArticleHtml(art.html);
+      setVisits((v) => [...v, art.title]);
       if (normaliseTitle(art.title) === normaliseTitle(target.title)) {
         scorePop("Target!");
         finishGame(newClicks, Date.now() - startedAt.current);
@@ -137,6 +141,24 @@ const NoMove = () => {
       console.error(e);
     }
   }, [target, clicks, finishGame]);
+
+  const bounceTo = useCallback(async (title: string) => {
+    try {
+      const art = await getArticleHtml(title);
+      setCurrentTitle(art.title);
+      setArticleHtml(art.html);
+      setVisits((v) => [...v, art.title]);
+      setClicks((c) => c + 1);
+      if (target && normaliseTitle(art.title) === normaliseTitle(target.title)) {
+        scorePop("Target!");
+        finishGame(clicks + 1, Date.now() - startedAt.current);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, [target, clicks, finishGame]);
+
+  const bounceProgress = countBounceProgress(visits);
 
   if (phase === "idle" || phase === "loading") {
     return (
@@ -241,6 +263,7 @@ const NoMove = () => {
             <Metric label="Clicks" value={String(clicks)} />
             <Metric label="Time" value={formatTime(elapsed)} />
             <Metric label="Score" value={score.toLocaleString()} accent />
+            <BounceButton progress={bounceProgress} onBounce={bounceTo} />
             <Button variant="outline" size="sm" onClick={() => setPhase("idle")}>End</Button>
           </div>
         </div>

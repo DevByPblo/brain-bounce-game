@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { useScrolled } from "@/hooks/use-scrolled";
 import { useBlockFind } from "@/hooks/use-block-find";
 import { Countdown } from "@/components/Countdown";
+import { BounceButton, countBounceProgress } from "@/components/BounceButton";
 
 type Phase = "idle" | "loading" | "countdown" | "playing" | "done";
 
@@ -55,6 +56,7 @@ const Collector = () => {
   const [clicks, setClicks] = useState(0);
   const [hopsThisLeg, setHopsThisLeg] = useState(0);
   const [remaining, setRemaining] = useState(ROUND_MS);
+  const [visits, setVisits] = useState<string[]>([]);
   const startedAt = useRef<number>(0);
   const submittedRef = useRef(false);
 
@@ -113,6 +115,7 @@ const Collector = () => {
     setClicks(0);
     setHopsThisLeg(0);
     setRemaining(ROUND_MS);
+    setVisits([]);
     submittedRef.current = false;
     try {
       // Pick a starting page + 5 random targets, all distinct.
@@ -133,6 +136,7 @@ const Collector = () => {
       setStartTitle(art.title);
       setCurrentTitle(art.title);
       setArticleHtml(art.html);
+      setVisits([art.title]);
       setTargets(ts.slice(0, ACTIVE_TARGETS));
       setPhase("countdown");
     } catch (e) {
@@ -151,6 +155,7 @@ const Collector = () => {
         const art = await getArticleHtml(title);
         setCurrentTitle(art.title);
         setArticleHtml(art.html);
+        setVisits((v) => [...v, art.title]);
 
         const idx = targets.findIndex(
           (t) => normaliseTitle(t) === normaliseTitle(art.title)
@@ -203,6 +208,12 @@ const Collector = () => {
   const targetTitlesForHighlight = useMemo(
     () => targets.join("|"),
     [targets]
+  );
+
+  const bounceProgress = countBounceProgress(visits);
+  const bounceTo = useCallback(
+    (title: string) => navigate(title),
+    [navigate]
   );
 
   // ─────────────────────────── UI ───────────────────────────
@@ -343,6 +354,7 @@ const Collector = () => {
               accent={lowTime}
             />
             <Metric label="Hits" value={String(reached.length)} />
+            <BounceButton progress={bounceProgress} onBounce={bounceTo} />
             <Button variant="outline" size="sm" onClick={finish}>
               End
             </Button>
