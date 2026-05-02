@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  ArrowLeft, Check, Copy, Loader2, Lock, Timer, Trophy, Users, Wifi, WifiOff, X,
+  ArrowLeft, Check, Copy, Crown, Flag, Loader2, Lock, Play, Timer,
+  Trophy, Users, X, Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,27 +12,44 @@ import {
 } from "@/lib/wiki";
 import { getPlayerId, getPlayerName, setPlayerName } from "@/lib/player";
 import {
-  cancelCoopMatch, claimCoopWord, createCoopRoom, fetchCoopClaims, fetchCoopMatch,
-  fetchCoopPlayers, finishCoopMatch, joinCoopRoom, rematchCoopMatch, setCoopChasing, subscribeCoop,
+  claimCoopWord, createCoopRoom, fetchCoopClaims, fetchCoopMatch, fetchCoopPlayers,
+  joinCoopRoom, leaveCoopMatch, markCoopDone, optInRematch, rematchCoopMatch,
+  setCoopChasing, startCoopMatch, subscribeCoop,
   type CoopClaimRow, type CoopMatchRow, type CoopPlayerRow,
 } from "@/lib/coop";
 import { toast } from "sonner";
 import { setRaceActive } from "@/hooks/use-race-active";
 import { useBlockFind } from "@/hooks/use-block-find";
 import { Countdown } from "@/components/Countdown";
-import { useScrolled } from "@/hooks/use-scrolled";
 import { supabase } from "@/integrations/supabase/client";
 
-type Phase = "lobby" | "creating" | "room" | "countdown" | "playing" | "finished";
+type Phase = "lobby" | "creating" | "room" | "playing" | "finished";
 
 const WORD_COUNT = 12;
-const DURATION_MS = 5 * 60 * 1000;
+const DEFAULT_DURATION_MS = 5 * 60 * 1000;
+const SUDDEN_DEATH_MS = 2 * 60 * 1000;
+const START_COUNTDOWN_MS = 5_000;
 
-const formatTime = (ms: number) => {
-  const s = Math.max(0, Math.floor(ms / 1000));
+const fmtTime = (ms: number) => {
+  const s = Math.max(0, Math.ceil(ms / 1000));
   const m = Math.floor(s / 60);
   const r = s % 60;
   return `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
+};
+
+/** Build a fresh wiki word list (12 random titles + a start). */
+const buildRound = async (): Promise<{ start: string; wordList: string[] }> => {
+  const start = await getRandomTitle();
+  const wordList: string[] = [];
+  const seen = new Set<string>([normaliseTitle(start)]);
+  while (wordList.length < WORD_COUNT) {
+    const t = await getRandomTitle();
+    const k = normaliseTitle(t);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    wordList.push(t);
+  }
+  return { start, wordList };
 };
 
 const Coop = () => {
@@ -44,19 +62,25 @@ const Coop = () => {
   const [match, setMatch] = useState<CoopMatchRow | null>(null);
   const [players, setPlayers] = useState<CoopPlayerRow[]>([]);
   const [claims, setClaims] = useState<CoopClaimRow[]>([]);
-  const [rematching, setRematching] = useState(false);
-  const [partnerOnline, setPartnerOnline] = useState(false);
+  const [busy, setBusy] = useState<null | "start" | "rematch" | "done">(null);
+  const [presence, setPresence] = useState<Set<string>>(new Set());
 
   const [startSummary, setStartSummary] = useState<WikiSummary | null>(null);
   const [articleHtml, setArticleHtml] = useState("");
   const [currentTitle, setCurrentTitle] = useState("");
   const [chasing, setChasing] = useState<string | null>(null);
 
-  const [elapsed, setElapsed] = useState(0);
-  const startedAtRef = useRef<number>(0);
+  const [now, setNow] = useState(() => Date.now());
 
-  const me = players.find((p) => p.player_id === playerId) ?? null;
-  const partner = players.find((p) => p.player_id !== playerId) ?? null;
+  // Active (non-left) players, ordered by join.
+  const activePlayers = useMemo(
+    () =>
+      [...players]
+        .filter((p) => !p.left_at)
+        .sort((a, b) => a.joined_at.localeCompare(b.joined_at)),
+    [players]
+  );
+  const me = activePlayers.find((p) => p.player_id === playerId) ?? null;
   const isHost = !!match && match.host_player_id === playerId;
 
   // ─── Realtime subscription ───
@@ -77,56 +101,52 @@ const Coop = () => {
     return () => sub.unsubscribe();
   }, [matchId]);
 
-  // ─── Presence: heartbeat so each side knows the other is connected ───
+  // ─── Presence ───
   useEffect(() => {
-    if (!matchId) { setPartnerOnline(false); return; }
+    if (!matchId) { setPresence(new Set()); return; }
     const channel = supabase.channel(`coop-presence:${matchId}`, {
       config: { presence: { key: playerId } },
     });
     channel.on("presence", { event: "sync" }, () => {
       const state = channel.presenceState() as Record<string, unknown[]>;
-      const others = Object.keys(state).filter((k) => k !== playerId);
-      setPartnerOnline(others.length > 0);
+      setPresence(new Set(Object.keys(state)));
     });
     channel.subscribe(async (status) => {
       if (status === "SUBSCRIBED") {
-        await channel.track({ at: Date.now() });
+        await channel.track({ at: Date.now(), name });
       }
     });
-    return () => {
-      void supabase.removeChannel(channel);
-      setPartnerOnline(false);
-    };
-  }, [matchId, playerId]);
+    return () => { void supabase.removeChannel(channel); };
+  }, [matchId, playerId, name]);
 
-  // ─── Auto-follow rematch chain (host or partner) ───
+  // ─── Auto-follow rematch ───
   useEffect(() => {
     if (!match?.next_match_id) return;
     if (match.next_match_id === matchId) return;
-    // Reset round-local state and switch to the new match.
     setClaims([]);
     setPlayers([]);
     setStartSummary(null);
     setArticleHtml("");
     setCurrentTitle("");
     setChasing(null);
-    setElapsed(0);
-    setRematching(false);
     setMatchId(match.next_match_id);
-    setPhase("countdown");
+    setPhase("room"); // land in lobby for next round
+    setBusy(null);
   }, [match?.next_match_id, matchId]);
 
-  // ─── Move from room → countdown when both players join (or solo after timer) ───
+  // ─── Match status drives phase transitions ───
   useEffect(() => {
-    if (phase !== "room") return;
-    if (match?.status === "playing" && players.length >= 2) {
-      setPhase("countdown");
+    if (!match) return;
+    if (match.status === "playing" && phase === "room") setPhase("playing");
+    if (match.status === "finished" && phase !== "finished") {
+      setPhase("finished");
+      setRaceActive(false);
     }
-  }, [phase, match?.status, players.length]);
+  }, [match, phase]);
 
-  // ─── Load start article when entering countdown ───
+  // ─── Load start article on entering playing ───
   useEffect(() => {
-    if (phase !== "countdown" || !match?.start_title) return;
+    if (phase !== "playing" || !match?.start_title) return;
     let cancelled = false;
     (async () => {
       try {
@@ -146,56 +166,47 @@ const Coop = () => {
     return () => { cancelled = true; };
   }, [phase, match?.start_title]);
 
-  // ─── Countdown → playing ───
-  const handleCountdownDone = useCallback(() => {
-    startedAtRef.current = Date.now();
-    setElapsed(0);
-    setPhase("playing");
-    setRaceActive(true);
-  }, []);
-
-  // ─── Timer ───
+  // ─── Single ticker (1s — smooth enough, doesn't thrash header) ───
   useEffect(() => {
     if (phase !== "playing") return;
-    const id = window.setInterval(() => {
-      const e = Date.now() - startedAtRef.current;
-      setElapsed(e);
-      if (e >= DURATION_MS) {
-        window.clearInterval(id);
-        setPhase("finished");
-        setRaceActive(false);
-        if (matchId) void finishCoopMatch(matchId, playerId);
-      }
-    }, 250);
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
-  }, [phase, matchId, playerId]);
+  }, [phase]);
 
-  // ─── Finished detection from match status ───
-  useEffect(() => {
-    if (match?.status === "finished" && phase === "playing") {
-      setPhase("finished");
-      setRaceActive(false);
+  // ─── Compute effective time-remaining (handles sudden death) ───
+  const remainingMs = useMemo(() => {
+    if (!match?.started_at) return DEFAULT_DURATION_MS;
+    const startedAt = new Date(match.started_at).getTime();
+    const baseEnd = startedAt + (match.duration_ms || DEFAULT_DURATION_MS);
+    if (match.sudden_death_at) {
+      const sdEnd = new Date(match.sudden_death_at).getTime() + (match.sudden_death_ms || SUDDEN_DEATH_MS);
+      return Math.max(0, Math.min(baseEnd, sdEnd) - now);
     }
-  }, [match?.status, phase]);
+    return Math.max(0, baseEnd - now);
+  }, [match, now]);
+
+  // Auto-finish when timer hits zero (only the host calls finish to avoid races).
+  useEffect(() => {
+    if (phase !== "playing" || !matchId) return;
+    if (remainingMs > 0) return;
+    if (!isHost) return;
+    void supabase.rpc("finish_coop_match", { p_match_id: matchId, p_player_id: playerId });
+  }, [phase, remainingMs, matchId, isHost, playerId]);
 
   useBlockFind(phase === "playing");
 
-  // ─── Start coop room ───
-  const startRoom = useCallback(async () => {
+  useEffect(() => {
+    setRaceActive(phase === "playing");
+    return () => setRaceActive(false);
+  }, [phase]);
+
+  // ─── Actions ───────────────────────────────────────────────────
+  const createRoom = useCallback(async () => {
     setError(null);
     setPhase("creating");
     setPlayerName(name);
     try {
-      const start = await getRandomTitle();
-      const wordList: string[] = [];
-      const seen = new Set<string>([normaliseTitle(start)]);
-      while (wordList.length < WORD_COUNT) {
-        const t = await getRandomTitle();
-        const k = normaliseTitle(t);
-        if (seen.has(k)) continue;
-        seen.add(k);
-        wordList.push(t);
-      }
+      const { start, wordList } = await buildRound();
       const { matchId: id } = await createCoopRoom({
         playerId, displayName: name || "Anonymous", start, wordList,
       });
@@ -208,7 +219,6 @@ const Coop = () => {
     }
   }, [name, playerId]);
 
-  // ─── Join coop room by code ───
   const joinRoom = useCallback(async (code: string) => {
     setError(null);
     setPlayerName(name);
@@ -223,9 +233,10 @@ const Coop = () => {
     }
   }, [name, playerId]);
 
-  // ─── Leave / cancel ───
-  const leave = useCallback(() => {
-    if (matchId) void cancelCoopMatch(matchId, playerId);
+  const leave = useCallback(async () => {
+    if (matchId) {
+      try { await leaveCoopMatch(matchId, playerId); } catch (e) { console.error(e); }
+    }
     setRaceActive(false);
     setMatchId(null);
     setMatch(null);
@@ -235,34 +246,67 @@ const Coop = () => {
     setArticleHtml("");
     setCurrentTitle("");
     setChasing(null);
+    setBusy(null);
     setPhase("lobby");
   }, [matchId, playerId]);
 
-  // ─── Host action: start a new round in the same room ───
+  // Host kicks off the round (after a 5s in-lobby countdown).
+  const [startCountdown, setStartCountdown] = useState<number | null>(null);
+  useEffect(() => {
+    if (startCountdown === null) return;
+    if (startCountdown <= 0) {
+      setStartCountdown(null);
+      if (matchId && isHost) {
+        void startCoopMatch(matchId, playerId).catch((e) => {
+          console.error(e);
+          toast.error("Couldn't start the round.");
+        });
+      }
+      return;
+    }
+    const id = window.setTimeout(() => setStartCountdown((c) => (c ?? 0) - 1), 1000);
+    return () => window.clearTimeout(id);
+  }, [startCountdown, isHost, matchId, playerId]);
+
+  const beginStart = useCallback(() => {
+    if (!isHost) return;
+    if (activePlayers.length < 2) {
+      toast.info("Wait for at least one more player.");
+      return;
+    }
+    setStartCountdown(Math.ceil(START_COUNTDOWN_MS / 1000));
+  }, [isHost, activePlayers.length]);
+
+  // Player marks themselves "done" — triggers sudden death after 3.
+  const markDone = useCallback(async () => {
+    if (!matchId) return;
+    setBusy("done");
+    try { await markCoopDone(matchId, playerId); }
+    catch (e) { console.error(e); }
+    finally { setBusy(null); }
+  }, [matchId, playerId]);
+
+  // Per-player rejoin opt-in (set on results screen).
+  const setOptIn = useCallback(async (yes: boolean) => {
+    if (!matchId) return;
+    try { await optInRematch(matchId, playerId, yes); } catch (e) { console.error(e); }
+  }, [matchId, playerId]);
+
+  // Host starts the next round (pulls in everyone who opted in).
   const playAgain = useCallback(async () => {
     if (!matchId || !isHost) return;
-    setRematching(true);
+    setBusy("rematch");
     try {
-      const start = await getRandomTitle();
-      const wordList: string[] = [];
-      const seen = new Set<string>([normaliseTitle(start)]);
-      while (wordList.length < WORD_COUNT) {
-        const t = await getRandomTitle();
-        const k = normaliseTitle(t);
-        if (seen.has(k)) continue;
-        seen.add(k);
-        wordList.push(t);
-      }
+      const { start, wordList } = await buildRound();
       await rematchCoopMatch({ matchId, playerId, start, wordList });
-      // Realtime onMatch (next_match_id) triggers the auto-follow effect.
     } catch (e) {
       console.error(e);
       toast.error("Couldn't start a new round.");
-      setRematching(false);
+      setBusy(null);
     }
   }, [matchId, playerId, isHost]);
 
-  // ─── Navigate links inside article ───
+  // ─── In-game navigate ───
   const navigate = useCallback(async (title: string) => {
     if (!matchId || phase !== "playing") return;
     try {
@@ -270,7 +314,6 @@ const Coop = () => {
       setArticleHtml(art.html);
       setCurrentTitle(art.title);
 
-      // Did this match a target word? Check all unclaimed words.
       const wordList = match?.word_list ?? [];
       const claimedKeys = new Set(claims.map((c) => normaliseTitle(c.word)));
       const hit = wordList.find(
@@ -305,27 +348,26 @@ const Coop = () => {
   if (phase === "lobby" || phase === "creating") {
     return (
       <Lobby
-        name={name}
-        setName={setName}
-        onCreate={startRoom}
-        onJoin={joinRoom}
-        loading={phase === "creating"}
-        error={error}
+        name={name} setName={setName}
+        onCreate={createRoom} onJoin={joinRoom}
+        loading={phase === "creating"} error={error}
       />
     );
   }
 
   if (phase === "room") {
     return (
-      <RoomWaiting
-        code={match?.room_code ?? ""}
-        onCancel={leave}
+      <RoomLobby
+        match={match}
+        players={activePlayers}
+        meId={playerId}
+        isHost={isHost}
+        startCountdown={startCountdown}
+        onStart={beginStart}
+        onLeave={leave}
+        presence={presence}
       />
     );
-  }
-
-  if (phase === "countdown") {
-    return <Countdown onComplete={handleCountdownDone} targetTitle="Find any word from the list" />;
   }
 
   if (phase === "playing") {
@@ -333,16 +375,18 @@ const Coop = () => {
       <PlayingScreen
         match={match}
         me={me}
-        partner={partner}
+        players={activePlayers}
         claims={claims}
-        elapsed={elapsed}
+        remainingMs={remainingMs}
         articleHtml={articleHtml}
         currentTitle={currentTitle}
         startSummary={startSummary}
         chasing={chasing}
-        partnerOnline={partnerOnline}
+        presence={presence}
         onNavigate={navigate}
         onPickChasing={pickChasing}
+        onMarkDone={markDone}
+        markingDone={busy === "done"}
         onLeave={leave}
       />
     );
@@ -351,20 +395,21 @@ const Coop = () => {
   return (
     <Results
       match={match}
-      me={me}
-      partner={partner}
+      players={activePlayers}
+      meId={playerId}
       claims={claims}
       isHost={isHost}
-      rematching={rematching}
-      partnerOnline={partnerOnline}
+      busy={busy}
+      onSetOptIn={setOptIn}
       onPlayAgain={playAgain}
       onLeave={leave}
+      presence={presence}
     />
   );
 };
 
 // ────────────────────────────────────────────────────────────────────
-// Lobby
+// Lobby (entry: name + create/join)
 // ────────────────────────────────────────────────────────────────────
 const Lobby = ({
   name, setName, onCreate, onJoin, loading, error,
@@ -391,8 +436,7 @@ const Lobby = ({
             Co-op <span className="italic text-primary">Time Attack</span>
           </h1>
           <p className="serif italic text-ink-soft mt-3 max-w-md mx-auto text-sm">
-            Two players, five minutes, twelve targets. Either of you can claim any word —
-            split up or double down.
+            Up to 10 readers in a room. Twelve targets. Find the most before the clock runs out.
           </p>
         </div>
 
@@ -410,10 +454,12 @@ const Lobby = ({
           <div className="paper-card p-5 sm:p-6 text-center">
             <Lock className="w-6 h-6 mx-auto text-primary mb-3" />
             <div className="small-caps text-[10px] text-ink-faint mb-1">Host</div>
-            <h3 className="serif text-lg font-bold mb-2">Create a room</h3>
-            <p className="text-xs text-ink-soft mb-4">Get a code to share with your partner.</p>
+            <h3 className="serif text-lg font-bold mb-2">Open a lobby</h3>
+            <p className="text-xs text-ink-soft mb-4">Get a code, share it, start when ready.</p>
             <Button onClick={onCreate} disabled={loading} className="w-full">
-              {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Setting up…</> : "Create room"}
+              {loading
+                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Setting up…</>
+                : "Open lobby"}
             </Button>
           </div>
 
@@ -434,7 +480,7 @@ const Lobby = ({
               disabled={code.length !== 6}
               className="w-full"
             >
-              Join room
+              Join lobby
             </Button>
           </div>
         </div>
@@ -450,10 +496,24 @@ const Lobby = ({
 };
 
 // ────────────────────────────────────────────────────────────────────
-// Room waiting
+// Room lobby — shows all current players, host can Start
 // ────────────────────────────────────────────────────────────────────
-const RoomWaiting = ({ code, onCancel }: { code: string; onCancel: () => void }) => {
+const RoomLobby = ({
+  match, players, meId, isHost, startCountdown, onStart, onLeave, presence,
+}: {
+  match: CoopMatchRow | null;
+  players: CoopPlayerRow[];
+  meId: string;
+  isHost: boolean;
+  startCountdown: number | null;
+  onStart: () => void;
+  onLeave: () => void;
+  presence: Set<string>;
+}) => {
   const [copied, setCopied] = useState(false);
+  const code = match?.room_code ?? "";
+  const max = match?.max_players ?? 10;
+
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(code);
@@ -461,30 +521,146 @@ const RoomWaiting = ({ code, onCancel }: { code: string; onCancel: () => void })
       setTimeout(() => setCopied(false), 1500);
     } catch { /* noop */ }
   };
+
   return (
-    <main className="relative z-10 min-h-screen flex items-center justify-center px-4 sm:px-6 py-16">
-      <div className="max-w-md w-full text-center paper-card p-6 sm:p-10">
-        <Lock className="w-7 h-7 mx-auto text-primary mb-4" />
-        <div className="small-caps text-xs text-ink-soft mb-2">Co-op room</div>
-        <h2 className="serif text-3xl font-extrabold mb-2">Share your code</h2>
-        <p className="text-sm text-ink-soft mb-6">
-          Send this to your partner. They join from the Co-op page.
-        </p>
+    <main className="relative z-10 min-h-screen px-4 sm:px-6 py-10">
+      <div className="max-w-2xl mx-auto">
+        <button
+          onClick={onLeave}
+          className="inline-flex items-center gap-1.5 small-caps text-xs text-ink-soft hover:text-destructive mb-6"
+        >
+          <ArrowLeft className="w-3 h-3" /> Leave lobby
+        </button>
+
+        <div className="text-center mb-6">
+          <div className="small-caps text-xs text-ink-soft mb-2">Co-op lobby</div>
+          <h2 className="serif text-3xl font-extrabold mb-1">
+            Round {match?.round_number ?? 1}
+          </h2>
+          <p className="text-sm text-ink-soft">
+            {players.length} of {max} {players.length === 1 ? "reader" : "readers"} here
+          </p>
+        </div>
+
         <button
           onClick={copy}
-          className="group block w-full paper-card p-4 sm:p-6 mb-5 hover:border-primary transition overflow-hidden"
+          className="group block w-full paper-card p-4 mb-5 hover:border-primary transition overflow-hidden"
         >
+          <div className="small-caps text-[10px] text-ink-faint mb-1">Room code</div>
           <div className="mono text-3xl sm:text-5xl font-extrabold tracking-[0.2em] sm:tracking-[0.4em] text-primary break-all">
             {code || "------"}
           </div>
           <div className="mt-3 inline-flex items-center gap-1.5 small-caps text-[10px] text-ink-faint group-hover:text-primary">
-            {copied ? <><Check className="w-3 h-3" /> Copied</> : <><Copy className="w-3 h-3" /> Click to copy</>}
+            {copied
+              ? <><Check className="w-3 h-3" /> Copied</>
+              : <><Copy className="w-3 h-3" /> Click to copy</>}
           </div>
         </button>
-        <Button variant="outline" onClick={onCancel}>Close room</Button>
-        <p className="text-[11px] text-ink-faint mt-6">Waiting for your partner…</p>
+
+        <div className="paper-card p-5 mb-5">
+          <div className="small-caps text-[10px] text-ink-faint mb-3">In the lobby</div>
+          <PlayerList
+            players={players}
+            meId={meId}
+            hostId={match?.host_player_id ?? null}
+            presence={presence}
+          />
+        </div>
+
+        {startCountdown !== null ? (
+          <div className="paper-card p-6 text-center">
+            <div className="small-caps text-[10px] text-ink-faint mb-2">Starting in</div>
+            <div className="mono text-6xl font-extrabold ticker text-primary tabular-nums">
+              {startCountdown}
+            </div>
+            <p className="text-[11px] text-ink-faint mt-2 serif italic">
+              Late joiners can still drop in until zero.
+            </p>
+          </div>
+        ) : isHost ? (
+          <div className="space-y-3">
+            <Button
+              onClick={onStart}
+              disabled={players.length < 2}
+              className="w-full h-12 text-base"
+            >
+              <Play className="w-4 h-4 mr-2" />
+              Start round
+            </Button>
+            <p className="text-[11px] text-ink-faint text-center serif italic">
+              {players.length < 2
+                ? "Waiting for one more player to join…"
+                : "You can start whenever everyone's ready."}
+            </p>
+          </div>
+        ) : (
+          <div className="paper-card p-4 text-center text-sm text-ink-soft serif italic">
+            <Loader2 className="w-4 h-4 inline mr-2 animate-spin text-primary" />
+            Waiting for the host to start…
+          </div>
+        )}
       </div>
     </main>
+  );
+};
+
+// ────────────────────────────────────────────────────────────────────
+// Live player list (used in lobby + sidebar)
+// ────────────────────────────────────────────────────────────────────
+const PlayerList = ({
+  players, meId, hostId, presence, ranked,
+}: {
+  players: CoopPlayerRow[];
+  meId: string;
+  hostId: string | null;
+  presence: Set<string>;
+  ranked?: boolean;
+}) => {
+  const list = ranked
+    ? [...players].sort((a, b) => b.score - a.score)
+    : players;
+
+  return (
+    <ul className="space-y-1.5">
+      {list.map((p, i) => {
+        const isMe = p.player_id === meId;
+        const isHost = p.player_id === hostId;
+        const online = presence.has(p.player_id);
+        return (
+          <li
+            key={p.id}
+            className={`flex items-center gap-2 px-2 py-1.5 rounded border ${
+              isMe ? "border-primary/50 bg-primary/5" : "border-rule"
+            }`}
+          >
+            {ranked && (
+              <span className="mono text-[10px] w-4 text-ink-faint tabular-nums">
+                {i + 1}
+              </span>
+            )}
+            <span
+              className={`w-2 h-2 rounded-full shrink-0 ${
+                online ? "bg-primary" : "bg-ink-faint/40"
+              }`}
+              title={online ? "Online" : "Disconnected"}
+            />
+            {isHost && <Crown className="w-3 h-3 text-primary shrink-0" />}
+            <span className="serif text-sm font-semibold truncate flex-1">
+              {p.display_name}
+              {isMe && <span className="ml-1 small-caps text-[9px] text-ink-faint">(you)</span>}
+            </span>
+            {ranked && (
+              <span className="mono text-xs tabular-nums">
+                {p.score.toLocaleString()}
+              </span>
+            )}
+            {p.finished_at && !ranked && (
+              <span className="small-caps text-[9px] text-primary">done</span>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 };
 
@@ -492,66 +668,99 @@ const RoomWaiting = ({ code, onCancel }: { code: string; onCancel: () => void })
 // Playing screen
 // ────────────────────────────────────────────────────────────────────
 const PlayingScreen = ({
-  match, me, partner, claims, elapsed, articleHtml, currentTitle, startSummary,
-  chasing, partnerOnline, onNavigate, onPickChasing, onLeave,
+  match, me, players, claims, remainingMs, articleHtml, currentTitle,
+  startSummary, chasing, presence, onNavigate, onPickChasing, onMarkDone,
+  markingDone, onLeave,
 }: {
   match: CoopMatchRow | null;
   me: CoopPlayerRow | null;
-  partner: CoopPlayerRow | null;
+  players: CoopPlayerRow[];
   claims: CoopClaimRow[];
-  elapsed: number;
+  remainingMs: number;
   articleHtml: string;
   currentTitle: string;
   startSummary: WikiSummary | null;
   chasing: string | null;
-  partnerOnline: boolean;
+  presence: Set<string>;
   onNavigate: (title: string) => void;
   onPickChasing: (word: string) => void;
+  onMarkDone: () => void;
+  markingDone: boolean;
   onLeave: () => void;
 }) => {
-  const compact = useScrolled();
   const wordList = match?.word_list ?? [];
-  const remaining = Math.max(0, DURATION_MS - elapsed);
   const claimedMap = new Map(claims.map((c) => [normaliseTitle(c.word), c]));
-  const partnerChasing = partner?.chasing_word ?? null;
-  const partnerName = partner?.display_name ?? "partner";
+  const inSuddenDeath = !!match?.sudden_death_at;
+  const lowTime = remainingMs <= 30_000;
+  const playerNameById = useMemo(
+    () => new Map(players.map((p) => [p.player_id, p.display_name])),
+    [players]
+  );
+  const meDone = !!me?.finished_at;
 
   return (
     <main className="relative z-10 min-h-screen pb-12">
-      <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-rule">
-        <ConnectionPill partnerName={partnerName} online={partnerOnline} hasPartner={!!partner} />
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2 sm:py-3 flex items-center gap-3">
+      {/* Sticky header: solid bg (no backdrop-blur) + fixed height to avoid scroll-jank */}
+      <header className="sticky top-0 z-30 bg-background border-b border-rule">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2 flex items-center gap-3 min-h-[44px]">
           <button
             onClick={onLeave}
-            className="paper-card px-2 py-1 text-xs text-ink-soft hover:text-destructive inline-flex items-center gap-1"
+            className="paper-card px-2 py-1 text-xs text-ink-soft hover:text-destructive inline-flex items-center gap-1 shrink-0"
           >
             <X className="w-3 h-3" /> Leave
           </button>
 
-          <div className={`flex-1 flex items-center gap-3 ${compact ? "justify-center" : "justify-center"}`}>
-            <div className="inline-flex items-center gap-1.5 mono text-base sm:text-xl font-bold ticker text-primary tabular-nums">
-              <Timer className="w-4 h-4" /> {formatTime(remaining)}
+          <div className="flex-1 flex items-center justify-center gap-3 min-w-0">
+            <div
+              className={`inline-flex items-center gap-1.5 mono text-base sm:text-xl font-bold ticker tabular-nums ${
+                lowTime ? "text-destructive" : "text-primary"
+              }`}
+            >
+              <Timer className="w-4 h-4" /> {fmtTime(remainingMs)}
+              {inSuddenDeath && (
+                <span className="ml-1 small-caps text-[9px] text-destructive bg-destructive/10 px-1.5 py-0.5 rounded">
+                  Sudden death
+                </span>
+              )}
             </div>
-            <div className="hairline h-5 w-px" />
-            <div className="inline-flex items-center gap-1.5 mono text-base sm:text-xl font-bold ticker tabular-nums">
-              <Trophy className="w-4 h-4 text-primary" /> {match?.team_score?.toLocaleString() ?? 0}
+            <div className="hairline h-5 w-px hidden sm:block" />
+            <div className="hidden sm:inline-flex items-center gap-1.5 mono text-base font-bold ticker tabular-nums">
+              <Trophy className="w-4 h-4 text-primary" />
+              {match?.team_score?.toLocaleString() ?? 0}
             </div>
-            <div className="hairline h-5 w-px" />
-            <div className="small-caps text-[10px] text-ink-soft">
-              {claims.length}/{wordList.length} found
+            <div className="hairline h-5 w-px hidden sm:block" />
+            <div className="small-caps text-[10px] text-ink-soft whitespace-nowrap">
+              {claims.length}/{wordList.length}
             </div>
           </div>
+
+          <Button
+            size="sm"
+            variant={meDone ? "secondary" : "outline"}
+            disabled={meDone || markingDone}
+            onClick={onMarkDone}
+            className="shrink-0 h-8 px-2 sm:px-3"
+            title="I'm done — let the others finish"
+          >
+            <Flag className="w-3 h-3 sm:mr-1" />
+            <span className="hidden sm:inline">{meDone ? "Done" : "Done"}</span>
+          </Button>
         </div>
 
         {/* Word list strip */}
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-2 sm:pb-3">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 pb-2">
           <div className="flex flex-wrap gap-1.5">
             {wordList.map((w) => {
               const claim = claimedMap.get(normaliseTitle(w));
               const claimed = !!claim;
               const byMe = claim?.claimed_by === me?.player_id;
+              const claimerName = claim ? playerNameById.get(claim.claimed_by) : null;
               const isChasing = chasing && normaliseTitle(chasing) === normaliseTitle(w);
-              const partnerHere = partnerChasing && normaliseTitle(partnerChasing) === normaliseTitle(w) && !claimed;
+              const partnerHere = !claimed && players.some(
+                (p) => p.player_id !== me?.player_id
+                  && p.chasing_word
+                  && normaliseTitle(p.chasing_word) === normaliseTitle(w)
+              );
               return (
                 <button
                   key={w}
@@ -566,15 +775,16 @@ const PlayingScreen = ({
                       ? "bg-primary/10 border-primary text-primary font-semibold"
                       : "border-rule hover:border-primary text-ink"
                   }`}
-                  title={claimed ? `Found by ${byMe ? "you" : partner?.display_name ?? "partner"}` : "Click to mark as your target"}
+                  title={
+                    claimed
+                      ? `Found by ${byMe ? "you" : claimerName ?? "someone"}`
+                      : "Click to mark as your target"
+                  }
                 >
                   {claimed && <Check className="w-3 h-3 inline mr-1" />}
                   {w}
                   {partnerHere && (
-                    <span
-                      className="absolute -top-1.5 -right-1.5 w-2.5 h-2.5 rounded-full bg-accent ring-2 ring-background"
-                      title={`${partner?.display_name ?? "Partner"} is chasing this`}
-                    />
+                    <span className="absolute -top-1.5 -right-1.5 w-2.5 h-2.5 rounded-full bg-accent ring-2 ring-background" />
                   )}
                 </button>
               );
@@ -596,48 +806,35 @@ const PlayingScreen = ({
 
         <aside className="space-y-3">
           <div className="paper-card p-4">
-            <div className="small-caps text-[10px] text-ink-faint mb-2">You</div>
-            <div className="serif font-bold truncate">{me?.display_name ?? "You"}</div>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <Stat label="Found" value={String(me?.claims ?? 0)} />
-              <Stat label="Score" value={(me?.score ?? 0).toLocaleString()} />
+            <div className="small-caps text-[10px] text-ink-faint mb-2 flex items-center justify-between">
+              <span>Lobby ({players.length})</span>
+              <span className="inline-flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                {presence.size} online
+              </span>
             </div>
-            <div className="mt-2 text-[11px] text-ink-soft truncate">
-              On: <span className="text-ink">{currentTitle || "—"}</span>
-            </div>
+            <PlayerList
+              players={players}
+              meId={me?.player_id ?? ""}
+              hostId={match?.host_player_id ?? null}
+              presence={presence}
+              ranked
+            />
+          </div>
+
+          <div className="paper-card p-4">
+            <div className="small-caps text-[10px] text-ink-faint mb-1">You're on</div>
+            <div className="serif font-semibold text-sm truncate">{currentTitle || "—"}</div>
             {chasing && (
-              <div className="mt-1 text-[11px] text-primary truncate">
+              <div className="mt-2 text-[11px] text-primary truncate">
                 Chasing: <span className="font-semibold">{chasing}</span>
               </div>
             )}
           </div>
 
-          <div className="paper-card p-4">
-            <div className="small-caps text-[10px] text-ink-faint mb-2">Partner</div>
-            {partner ? (
-              <>
-                <div className="serif font-bold truncate">{partner.display_name}</div>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <Stat label="Found" value={String(partner.claims)} />
-                  <Stat label="Score" value={partner.score.toLocaleString()} />
-                </div>
-                <div className="mt-2 text-[11px] text-ink-soft truncate">
-                  On: <span className="text-ink">{partner.current_title || "—"}</span>
-                </div>
-                {partner.chasing_word && (
-                  <div className="mt-1 text-[11px] text-accent truncate">
-                    Chasing: <span className="font-semibold">{partner.chasing_word}</span>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="text-xs text-ink-soft serif italic">Waiting…</div>
-            )}
-          </div>
-
           {startSummary && (
             <div className="paper-card p-4">
-              <div className="small-caps text-[10px] text-ink-faint mb-1">Start</div>
+              <div className="small-caps text-[10px] text-ink-faint mb-1">Started from</div>
               <div className="serif font-semibold text-sm">{startSummary.title}</div>
             </div>
           )}
@@ -647,84 +844,59 @@ const PlayingScreen = ({
   );
 };
 
-const Stat = ({ label, value }: { label: string; value: string }) => (
-  <div>
-    <div className="small-caps text-[9px] text-ink-faint">{label}</div>
-    <div className="mono font-bold ticker tabular-nums text-base">{value}</div>
-  </div>
-);
-
 // ────────────────────────────────────────────────────────────────────
-// Connection pill (top of playing/results)
-// ────────────────────────────────────────────────────────────────────
-const ConnectionPill = ({
-  partnerName, online, hasPartner,
-}: { partnerName: string; online: boolean; hasPartner: boolean }) => {
-  const ok = hasPartner && online;
-  return (
-    <div className="w-full bg-background/80 border-b border-rule/60">
-      <div className="max-w-6xl mx-auto px-3 sm:px-6 py-1 flex items-center justify-center gap-1.5 text-[11px] small-caps">
-        {ok ? (
-          <>
-            <span className="relative inline-flex w-2 h-2">
-              <span className="absolute inset-0 rounded-full bg-primary/50 animate-ping" />
-              <span className="relative inline-flex w-2 h-2 rounded-full bg-primary" />
-            </span>
-            <Wifi className="w-3 h-3 text-primary" />
-            <span className="text-ink-soft">Connected with</span>
-            <span className="text-ink font-semibold normal-case">{partnerName}</span>
-          </>
-        ) : (
-          <>
-            <WifiOff className="w-3 h-3 text-destructive" />
-            <span className="text-destructive">
-              {hasPartner ? `Reconnecting to ${partnerName}…` : "Waiting for partner…"}
-            </span>
-          </>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// ────────────────────────────────────────────────────────────────────
-// Results
+// Results: podium, ranked leaderboard, words breakdown, per-player rejoin
 // ────────────────────────────────────────────────────────────────────
 const Results = ({
-  match, me, partner, claims, isHost, rematching, partnerOnline, onPlayAgain, onLeave,
+  match, players, meId, claims, isHost, busy, onSetOptIn, onPlayAgain,
+  onLeave, presence,
 }: {
   match: CoopMatchRow | null;
-  me: CoopPlayerRow | null;
-  partner: CoopPlayerRow | null;
+  players: CoopPlayerRow[];
+  meId: string;
   claims: CoopClaimRow[];
   isHost: boolean;
-  rematching: boolean;
-  partnerOnline: boolean;
+  busy: null | "start" | "rematch" | "done";
+  onSetOptIn: (yes: boolean) => void;
   onPlayAgain: () => void;
   onLeave: () => void;
+  presence: Set<string>;
 }) => {
   const wordList = match?.word_list ?? [];
   const swept = claims.length === wordList.length && wordList.length > 0;
-  const partnerName = partner?.display_name ?? "partner";
+  const ranked = useMemo(
+    () => [...players].sort((a, b) => b.score - a.score),
+    [players]
+  );
+  const podium = ranked.slice(0, 3);
+  const me = players.find((p) => p.player_id === meId) ?? null;
+  const optedInPlayers = ranked.filter((p) => p.rematch_opt_in || p.player_id === match?.host_player_id);
+  const myOptIn = !!me?.rematch_opt_in || isHost;
+
+  const claimsByPlayer = useMemo(() => {
+    const m = new Map<string, CoopClaimRow[]>();
+    for (const c of claims) {
+      const arr = m.get(c.claimed_by) ?? [];
+      arr.push(c); m.set(c.claimed_by, arr);
+    }
+    return m;
+  }, [claims]);
 
   return (
     <main className="relative z-10 min-h-screen px-4 sm:px-6 py-10 sm:py-14">
-      <ConnectionPill partnerName={partnerName} online={partnerOnline} hasPartner={!!partner} />
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-8">
           <Trophy className="w-10 h-10 mx-auto text-primary mb-4" />
-          <div className="small-caps text-xs text-ink-soft mb-2">Time's up</div>
+          <div className="small-caps text-xs text-ink-soft mb-2">Round complete</div>
           <h1 className="serif text-4xl sm:text-5xl font-extrabold">
-            {swept ? "Clean sweep!" : "Round complete"}
+            {swept ? "Clean sweep!" : "Time's up"}
           </h1>
           {match?.round_number ? (
             <div className="small-caps text-[10px] text-ink-faint mt-2">
               Round {match.round_number}
             </div>
           ) : null}
-          <p className="serif italic text-ink-soft mt-3">
-            Team score
-          </p>
+          <p className="serif italic text-ink-soft mt-3">Team score</p>
           <div className="mono text-5xl font-extrabold ticker text-primary tabular-nums mt-1">
             {(match?.team_score ?? 0).toLocaleString()}
           </div>
@@ -733,82 +905,134 @@ const Results = ({
           </p>
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-4 mb-6">
-          <div className="paper-card p-5">
-            <div className="small-caps text-[10px] text-ink-faint mb-1">You</div>
-            <div className="serif font-bold text-lg truncate">{me?.display_name ?? "You"}</div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <Stat label="Found" value={String(me?.claims ?? 0)} />
-              <Stat label="Score" value={(me?.score ?? 0).toLocaleString()} />
-            </div>
-          </div>
-          <div className="paper-card p-5">
-            <div className="small-caps text-[10px] text-ink-faint mb-1">Partner</div>
-            <div className="serif font-bold text-lg truncate">{partner?.display_name ?? "—"}</div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <Stat label="Found" value={String(partner?.claims ?? 0)} />
-              <Stat label="Score" value={(partner?.score ?? 0).toLocaleString()} />
-            </div>
-          </div>
-        </div>
-
-        <div className="paper-card p-5 mb-6">
-          <div className="small-caps text-[10px] text-ink-faint mb-3">Word list</div>
-          <div className="flex flex-wrap gap-1.5">
-            {wordList.map((w) => {
-              const claim = claims.find((c) => normaliseTitle(c.word) === normaliseTitle(w));
-              const byMe = claim?.claimed_by === me?.player_id;
+        {/* Podium */}
+        {podium.length > 0 && (
+          <div className="grid grid-cols-3 gap-3 mb-6">
+            {[1, 0, 2].map((idx) => {
+              const p = podium[idx];
+              if (!p) return <div key={idx} />;
+              const place = idx + 1;
+              const heights = ["h-28", "h-36", "h-24"];
+              const colors = ["text-amber-500", "text-zinc-400", "text-orange-700"];
               return (
-                <span
-                  key={w}
-                  className={`text-xs px-2 py-1 rounded border ${
-                    claim
-                      ? byMe
-                        ? "bg-primary/20 border-primary/60 text-primary"
-                        : "bg-accent/20 border-accent/60 text-accent"
-                      : "border-rule text-ink-faint line-through opacity-60"
-                  }`}
-                >
-                  {claim && <Check className="w-3 h-3 inline mr-1" />}{w}
-                </span>
+                <div key={p.id} className="flex flex-col items-center justify-end">
+                  <Trophy className={`w-6 h-6 mb-2 ${colors[idx]}`} />
+                  <div className="serif font-bold text-sm truncate max-w-full">
+                    {p.display_name}
+                  </div>
+                  <div className="mono text-base tabular-nums text-primary">
+                    {p.score.toLocaleString()}
+                  </div>
+                  <div className={`paper-card w-full mt-2 flex items-center justify-center ${heights[idx]} bg-primary/5`}>
+                    <div className="serif text-3xl font-extrabold text-primary">{place}</div>
+                  </div>
+                </div>
               );
             })}
           </div>
+        )}
+
+        {/* Full ranked list */}
+        <div className="paper-card p-5 mb-5">
+          <div className="small-caps text-[10px] text-ink-faint mb-3">Leaderboard</div>
+          <PlayerList
+            players={ranked}
+            meId={meId}
+            hostId={match?.host_player_id ?? null}
+            presence={presence}
+            ranked
+          />
+        </div>
+
+        {/* Per-player words breakdown */}
+        <div className="paper-card p-5 mb-6">
+          <div className="small-caps text-[10px] text-ink-faint mb-3">Words found by player</div>
+          <ul className="space-y-3">
+            {ranked.map((p) => {
+              const ws = claimsByPlayer.get(p.player_id) ?? [];
+              return (
+                <li key={p.id}>
+                  <div className="flex items-baseline justify-between mb-1">
+                    <span className="serif font-semibold text-sm truncate">
+                      {p.display_name}
+                      {p.player_id === meId && (
+                        <span className="ml-1 small-caps text-[9px] text-ink-faint">(you)</span>
+                      )}
+                    </span>
+                    <span className="mono text-[11px] tabular-nums text-ink-faint">
+                      {ws.length} {ws.length === 1 ? "word" : "words"}
+                    </span>
+                  </div>
+                  {ws.length === 0 ? (
+                    <div className="text-[11px] text-ink-faint serif italic">No words.</div>
+                  ) : (
+                    <div className="flex flex-wrap gap-1">
+                      {ws.map((c) => (
+                        <span
+                          key={c.id}
+                          className="text-[11px] px-1.5 py-0.5 rounded border border-primary/30 bg-primary/5 text-primary"
+                        >
+                          {c.word}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+
+        {/* Per-player rejoin: opt in to next round + host start */}
+        <div className="paper-card p-5 mb-6">
+          <div className="small-caps text-[10px] text-ink-faint mb-3">Next round</div>
+          {!isHost && (
+            <div className="flex items-center gap-3 mb-3">
+              <Button
+                size="sm"
+                variant={myOptIn ? "default" : "outline"}
+                onClick={() => onSetOptIn(!myOptIn)}
+              >
+                <Zap className="w-3 h-3 mr-1.5" />
+                {myOptIn ? "Staying in" : "Stay for next round"}
+              </Button>
+              <span className="text-[11px] text-ink-soft">
+                {optedInPlayers.length} {optedInPlayers.length === 1 ? "player" : "players"} ready
+              </span>
+            </div>
+          )}
+
+          {/* Always show who's staying so everyone can see the next lobby. */}
+          <div className="text-[11px] text-ink-faint mb-2">Staying:</div>
+          <PlayerList
+            players={optedInPlayers}
+            meId={meId}
+            hostId={match?.host_player_id ?? null}
+            presence={presence}
+          />
         </div>
 
         <div className="flex gap-3 justify-center flex-wrap">
           {isHost ? (
             <Button
               onClick={onPlayAgain}
-              disabled={rematching || !partner}
+              disabled={busy === "rematch"}
               className="min-w-[180px]"
             >
-              {rematching ? (
-                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Starting…</>
-              ) : (
-                "Play again"
-              )}
+              {busy === "rematch"
+                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Starting…</>
+                : <>Play again ({optedInPlayers.length})</>}
             </Button>
           ) : (
             <div className="paper-card px-4 py-3 inline-flex items-center gap-2 text-sm text-ink-soft">
               <Loader2 className="w-4 h-4 animate-spin text-primary" />
-              Waiting for {partnerName} to start the next round…
+              Waiting for the host to start…
             </div>
           )}
           <Button onClick={onLeave} variant="outline" className="min-w-[140px]">
             Leave room
           </Button>
         </div>
-        {isHost && !partner && (
-          <p className="text-center text-[11px] text-ink-faint mt-3 serif italic">
-            Your partner left — leave the room to start a new one.
-          </p>
-        )}
-        {isHost && partner && (
-          <p className="text-center text-[11px] text-ink-faint mt-3 serif italic">
-            Next round: {partnerName} hosts.
-          </p>
-        )}
       </div>
     </main>
   );

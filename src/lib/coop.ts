@@ -17,6 +17,10 @@ export type CoopMatchRow = {
   host_player_id: string | null;
   round_number: number;
   next_match_id: string | null;
+  max_players: number;
+  start_countdown_at: string | null;
+  sudden_death_at: string | null;
+  sudden_death_ms: number;
 };
 
 export type CoopPlayerRow = {
@@ -29,6 +33,9 @@ export type CoopPlayerRow = {
   claims: number;
   score: number;
   joined_at: string;
+  left_at: string | null;
+  finished_at: string | null;
+  rematch_opt_in: boolean;
 };
 
 export type CoopClaimRow = {
@@ -115,6 +122,47 @@ export async function finishCoopMatch(matchId: string, playerId: string): Promis
 
 export async function cancelCoopMatch(matchId: string, playerId: string): Promise<void> {
   await supabase.rpc("cancel_coop_match", { p_match_id: matchId, p_player_id: playerId });
+}
+
+/** Host: kick the lobby into the start countdown / playing state. */
+export async function startCoopMatch(matchId: string, playerId: string): Promise<void> {
+  const { error } = await supabase.rpc("start_coop_match", {
+    p_match_id: matchId,
+    p_player_id: playerId,
+  });
+  if (error) throw error;
+}
+
+/** Mark this player as "done" (gives up / claimed all they can). Triggers sudden death after 3. */
+export async function markCoopDone(matchId: string, playerId: string): Promise<void> {
+  const { error } = await supabase.rpc("mark_coop_done", {
+    p_match_id: matchId,
+    p_player_id: playerId,
+  });
+  if (error) throw error;
+}
+
+/** Player leaves the lobby/match. Reassigns host if needed server-side. */
+export async function leaveCoopMatch(matchId: string, playerId: string): Promise<void> {
+  const { error } = await supabase.rpc("leave_coop_match", {
+    p_match_id: matchId,
+    p_player_id: playerId,
+  });
+  if (error) throw error;
+}
+
+/** Per-player rejoin opt-in (Yes I want the next round). */
+export async function optInRematch(
+  matchId: string,
+  playerId: string,
+  optIn: boolean
+): Promise<void> {
+  const { error } = await supabase.rpc("opt_in_rematch", {
+    p_match_id: matchId,
+    p_player_id: playerId,
+    p_opt_in: optIn,
+  });
+  if (error) throw error;
 }
 
 export async function rematchCoopMatch(args: {

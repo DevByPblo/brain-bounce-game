@@ -21,12 +21,16 @@ export type Database = {
           finished_at: string | null
           host_player_id: string | null
           id: string
+          max_players: number
           next_match_id: string | null
           room_code: string | null
           round_number: number
+          start_countdown_at: string | null
           start_title: string
           started_at: string | null
           status: string
+          sudden_death_at: string | null
+          sudden_death_ms: number
           team_score: number
           word_list: Json
         }
@@ -36,12 +40,16 @@ export type Database = {
           finished_at?: string | null
           host_player_id?: string | null
           id?: string
+          max_players?: number
           next_match_id?: string | null
           room_code?: string | null
           round_number?: number
+          start_countdown_at?: string | null
           start_title: string
           started_at?: string | null
           status?: string
+          sudden_death_at?: string | null
+          sudden_death_ms?: number
           team_score?: number
           word_list?: Json
         }
@@ -51,12 +59,16 @@ export type Database = {
           finished_at?: string | null
           host_player_id?: string | null
           id?: string
+          max_players?: number
           next_match_id?: string | null
           room_code?: string | null
           round_number?: number
+          start_countdown_at?: string | null
           start_title?: string
           started_at?: string | null
           status?: string
+          sudden_death_at?: string | null
+          sudden_death_ms?: number
           team_score?: number
           word_list?: Json
         }
@@ -68,10 +80,13 @@ export type Database = {
           claims: number
           current_title: string | null
           display_name: string
+          finished_at: string | null
           id: string
           joined_at: string
+          left_at: string | null
           match_id: string
           player_id: string
+          rematch_opt_in: boolean
           score: number
         }
         Insert: {
@@ -79,10 +94,13 @@ export type Database = {
           claims?: number
           current_title?: string | null
           display_name: string
+          finished_at?: string | null
           id?: string
           joined_at?: string
+          left_at?: string | null
           match_id: string
           player_id: string
+          rematch_opt_in?: boolean
           score?: number
         }
         Update: {
@@ -90,10 +108,13 @@ export type Database = {
           claims?: number
           current_title?: string | null
           display_name?: string
+          finished_at?: string | null
           id?: string
           joined_at?: string
+          left_at?: string | null
           match_id?: string
           player_id?: string
+          rematch_opt_in?: boolean
           score?: number
         }
         Relationships: [
@@ -405,9 +426,21 @@ export type Database = {
             }
             Returns: string
           }
+      leave_coop_match: {
+        Args: { p_match_id: string; p_player_id: string }
+        Returns: undefined
+      }
+      mark_coop_done: {
+        Args: { p_match_id: string; p_player_id: string }
+        Returns: undefined
+      }
       migrate_anonymous_scores: {
         Args: { p_from_user: string }
         Returns: number
+      }
+      opt_in_rematch: {
+        Args: { p_match_id: string; p_opt_in: boolean; p_player_id: string }
+        Returns: undefined
       }
       rematch_coop_match: {
         Args: {
@@ -435,6 +468,10 @@ export type Database = {
           p_match_id: string
           p_player_id: string
         }
+        Returns: undefined
+      }
+      start_coop_match: {
+        Args: { p_match_id: string; p_player_id: string }
         Returns: undefined
       }
     }

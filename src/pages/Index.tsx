@@ -786,9 +786,9 @@ const IdleScreen = ({
               <Users className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="serif font-bold">Co-op Time Attack</div>
+              <div className="serif font-bold">Play with friends · Co-op</div>
               <div className="text-xs text-ink-soft">
-                Team up: 5 minutes, 12 targets. Split the list — find as many as you can.
+                Up to 10 readers. 12 targets. Most words wins — host starts when ready.
               </div>
             </div>
             <ArrowRight className="w-4 h-4 text-ink-soft shrink-0" />
