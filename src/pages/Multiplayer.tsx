@@ -3,25 +3,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { WikiArticle } from "@/components/WikiArticle";
-import {
-  ArrowLeft,
-  ArrowRight,
-  Bot,
-  Check,
-  Clock,
-  Copy,
-  Flag,
-  KeyRound,
-  Lightbulb,
-  Loader2,
-  Lock,
-  MousePointerClick,
-  RotateCcw,
-  Swords,
-  Target,
-  Trophy,
-  Users,
-} from "lucide-react";
+import { ArrowLeft, ArrowRight, Bot, Check, Clock, Copy, Flag, KeyRound, Lightbulb, Loader as Loader2, Lock, MousePointerClick, RotateCcw, Swords, Target, Trophy, Users } from "lucide-react";
 import {
   getArticleHtml,
   getRandomTitle,
@@ -174,7 +156,7 @@ const Multiplayer = () => {
     botFallbackRef.current = window.setTimeout(async () => {
       try {
         const botName = randomBotName();
-        await addBotToMatch({ matchId, playerId, botName: `🤖 ${botName}` });
+        await addBotToMatch({ matchId, playerId, botName: botName });
         toast.info("No challenger online — a bot is stepping in.");
       } catch (e) {
         console.error("bot fallback failed", e);
@@ -408,7 +390,7 @@ const Multiplayer = () => {
       await addBotToMatch({
         matchId,
         playerId,
-        botName: `🤖 ${randomBotName()}`,
+        botName: randomBotName(),
       });
     } catch (e: unknown) {
       console.error("addBotToMatch failed", e);
@@ -729,6 +711,7 @@ const Multiplayer = () => {
                 self
               />
               <PlayerCard
+                key={opponentHopKey}
                 label={opponent?.is_bot ? "Bot" : "Opponent"}
                 name={opponent?.display_name ?? "Waiting…"}
                 clicks={opponentClicks}
@@ -1469,11 +1452,9 @@ const PlayerCard = ({
   pulseKey?: number;
 }) => (
   <div
-    // `key` forces a remount on each pulseKey bump, re-running the CSS animation.
-    key={pulseKey ?? "static"}
     className={`paper-card p-3 flex items-center justify-between gap-3 ${
       self ? "ring-1 ring-primary/40" : ""
-    } ${pulseKey ? "opponent-hop-pulse" : ""}`}
+    } ${!self && pulseKey !== undefined ? "opponent-hop-pulse" : ""}`}
   >
     <div className="min-w-0">
       <div className="flex items-center gap-1.5 mb-0.5">
