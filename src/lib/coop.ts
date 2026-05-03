@@ -165,6 +165,20 @@ export async function optInRematch(
   if (error) throw error;
 }
 
+/** Promote a candidate (usually the caller) to host if the current host has dropped. */
+export async function reassignCoopHost(
+  matchId: string,
+  callerId: string,
+  candidateId: string
+): Promise<void> {
+  const { error } = await supabase.rpc("reassign_coop_host", {
+    p_match_id: matchId,
+    p_caller_id: callerId,
+    p_candidate_id: candidateId,
+  });
+  if (error) throw error;
+}
+
 export async function rematchCoopMatch(args: {
   matchId: string;
   playerId: string;
