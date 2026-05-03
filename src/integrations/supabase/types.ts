@@ -442,6 +442,14 @@ export type Database = {
         Args: { p_match_id: string; p_opt_in: boolean; p_player_id: string }
         Returns: undefined
       }
+      reassign_coop_host: {
+        Args: {
+          p_caller_id: string
+          p_candidate_id: string
+          p_match_id: string
+        }
+        Returns: string
+      }
       rematch_coop_match: {
         Args: {
           p_match_id: string
