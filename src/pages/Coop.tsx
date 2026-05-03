@@ -909,6 +909,7 @@ const PlayingScreen = ({
               hostId={match?.host_player_id ?? null}
               presence={presence}
               ranked
+              totalWords={wordList.length}
             />
           </div>
 
