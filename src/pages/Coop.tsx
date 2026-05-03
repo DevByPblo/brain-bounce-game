@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowLeft, Check, Copy, Crown, Flag, Loader2, Lock, Play, Timer,
-  Trophy, Users, X, Zap,
+  Trophy, Users, X, Zap, Share2, Link2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -511,8 +511,13 @@ const RoomLobby = ({
   presence: Set<string>;
 }) => {
   const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const code = match?.room_code ?? "";
   const max = match?.max_players ?? 10;
+  const totalWords = match?.word_list?.length ?? 0;
+  const shareUrl = code
+    ? `${window.location.origin}/coop?code=${encodeURIComponent(code)}`
+    : "";
 
   const copy = async () => {
     try {
@@ -520,6 +525,27 @@ const RoomLobby = ({
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch { /* noop */ }
+  };
+
+  const copyLink = async () => {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 1500);
+    } catch { /* noop */ }
+  };
+
+  const share = async () => {
+    if (!shareUrl) return;
+    const text = `Join my Co-op round on WikiRace — code ${code}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "WikiRace Co-op", text, url: shareUrl });
+        return;
+      } catch { /* user cancelled */ }
+    }
+    void copyLink();
   };
 
   return (
@@ -542,20 +568,51 @@ const RoomLobby = ({
           </p>
         </div>
 
-        <button
-          onClick={copy}
-          className="group block w-full paper-card p-4 mb-5 hover:border-primary transition overflow-hidden"
-        >
-          <div className="small-caps text-[10px] text-ink-faint mb-1">Room code</div>
-          <div className="mono text-3xl sm:text-5xl font-extrabold tracking-[0.2em] sm:tracking-[0.4em] text-primary break-all">
-            {code || "------"}
+        <div className="paper-card p-4 mb-5 overflow-hidden">
+          <div className="small-caps text-[10px] text-ink-faint mb-1">Room code · invite up to {max}</div>
+          <button
+            onClick={copy}
+            className="group block w-full text-left hover:opacity-90 transition"
+          >
+            <div className="mono text-3xl sm:text-5xl font-extrabold tracking-[0.2em] sm:tracking-[0.4em] text-primary break-all">
+              {code || "------"}
+            </div>
+          </button>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={copy}
+              disabled={!code}
+              className="w-full"
+            >
+              {copied
+                ? <><Check className="w-3.5 h-3.5 mr-1.5" /> Copied</>
+                : <><Copy className="w-3.5 h-3.5 mr-1.5" /> Copy code</>}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={share}
+              disabled={!shareUrl}
+              className="w-full"
+            >
+              {linkCopied
+                ? <><Check className="w-3.5 h-3.5 mr-1.5" /> Link copied</>
+                : <><Share2 className="w-3.5 h-3.5 mr-1.5" /> Share invite</>}
+            </Button>
           </div>
-          <div className="mt-3 inline-flex items-center gap-1.5 small-caps text-[10px] text-ink-faint group-hover:text-primary">
-            {copied
-              ? <><Check className="w-3 h-3" /> Copied</>
-              : <><Copy className="w-3 h-3" /> Click to copy</>}
-          </div>
-        </button>
+          {shareUrl && (
+            <button
+              onClick={copyLink}
+              className="mt-2 w-full inline-flex items-center justify-center gap-1.5 small-caps text-[10px] text-ink-faint hover:text-primary truncate"
+              title={shareUrl}
+            >
+              <Link2 className="w-3 h-3 shrink-0" />
+              <span className="truncate">{shareUrl.replace(/^https?:\/\//, "")}</span>
+            </button>
+          )}
+        </div>
 
         <div className="paper-card p-5 mb-5">
           <div className="small-caps text-[10px] text-ink-faint mb-3">In the lobby</div>
@@ -564,6 +621,7 @@ const RoomLobby = ({
             meId={meId}
             hostId={match?.host_player_id ?? null}
             presence={presence}
+            totalWords={totalWords}
           />
         </div>
 
@@ -608,13 +666,14 @@ const RoomLobby = ({
 // Live player list (used in lobby + sidebar)
 // ────────────────────────────────────────────────────────────────────
 const PlayerList = ({
-  players, meId, hostId, presence, ranked,
+  players, meId, hostId, presence, ranked, totalWords,
 }: {
   players: CoopPlayerRow[];
   meId: string;
   hostId: string | null;
   presence: Set<string>;
   ranked?: boolean;
+  totalWords?: number;
 }) => {
   const list = ranked
     ? [...players].sort((a, b) => b.score - a.score)
@@ -626,13 +685,23 @@ const PlayerList = ({
         const isMe = p.player_id === meId;
         const isHost = p.player_id === hostId;
         const online = presence.has(p.player_id);
+        const done = !!p.finished_at;
+        const claims = p.claims ?? 0;
+        const pct = totalWords && totalWords > 0
+          ? Math.min(100, Math.round((claims / totalWords) * 100))
+          : null;
         return (
           <li
             key={p.id}
-            className={`flex items-center gap-2 px-2 py-1.5 rounded border ${
-              isMe ? "border-primary/50 bg-primary/5" : "border-rule"
+            className={`px-2 py-1.5 rounded border ${
+              done
+                ? "border-success/40 bg-success/5"
+                : isMe
+                ? "border-primary/50 bg-primary/5"
+                : "border-rule"
             }`}
           >
+            <div className="flex items-center gap-2">
             {ranked && (
               <span className="mono text-[10px] w-4 text-ink-faint tabular-nums">
                 {i + 1}
@@ -649,13 +718,34 @@ const PlayerList = ({
               {p.display_name}
               {isMe && <span className="ml-1 small-caps text-[9px] text-ink-faint">(you)</span>}
             </span>
+            {totalWords ? (
+              <span
+                className={`mono text-[10px] tabular-nums shrink-0 ${
+                  done ? "text-success" : "text-ink-soft"
+                }`}
+                title={`${claims} of ${totalWords} words found`}
+              >
+                {claims}/{totalWords}
+              </span>
+            ) : null}
+            {done && (
+              <span className="inline-flex items-center gap-1 small-caps text-[9px] text-success bg-success/10 border border-success/30 px-1.5 py-0.5 rounded shrink-0">
+                <Flag className="w-2.5 h-2.5" /> Done
+              </span>
+            )}
             {ranked && (
               <span className="mono text-xs tabular-nums">
                 {p.score.toLocaleString()}
               </span>
             )}
-            {p.finished_at && !ranked && (
-              <span className="small-caps text-[9px] text-primary">done</span>
+            </div>
+            {pct !== null && !ranked && (
+              <div className="mt-1 h-1 w-full bg-muted rounded overflow-hidden">
+                <div
+                  className={`h-full ${done ? "bg-success" : "bg-primary"} transition-all`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
             )}
           </li>
         );
@@ -819,6 +909,7 @@ const PlayingScreen = ({
               hostId={match?.host_player_id ?? null}
               presence={presence}
               ranked
+              totalWords={wordList.length}
             />
           </div>
 
