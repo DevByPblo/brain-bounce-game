@@ -666,13 +666,14 @@ const RoomLobby = ({
 // Live player list (used in lobby + sidebar)
 // ────────────────────────────────────────────────────────────────────
 const PlayerList = ({
-  players, meId, hostId, presence, ranked,
+  players, meId, hostId, presence, ranked, totalWords,
 }: {
   players: CoopPlayerRow[];
   meId: string;
   hostId: string | null;
   presence: Set<string>;
   ranked?: boolean;
+  totalWords?: number;
 }) => {
   const list = ranked
     ? [...players].sort((a, b) => b.score - a.score)
@@ -684,13 +685,23 @@ const PlayerList = ({
         const isMe = p.player_id === meId;
         const isHost = p.player_id === hostId;
         const online = presence.has(p.player_id);
+        const done = !!p.finished_at;
+        const claims = p.claims ?? 0;
+        const pct = totalWords && totalWords > 0
+          ? Math.min(100, Math.round((claims / totalWords) * 100))
+          : null;
         return (
           <li
             key={p.id}
-            className={`flex items-center gap-2 px-2 py-1.5 rounded border ${
-              isMe ? "border-primary/50 bg-primary/5" : "border-rule"
+            className={`px-2 py-1.5 rounded border ${
+              done
+                ? "border-success/40 bg-success/5"
+                : isMe
+                ? "border-primary/50 bg-primary/5"
+                : "border-rule"
             }`}
           >
+            <div className="flex items-center gap-2">
             {ranked && (
               <span className="mono text-[10px] w-4 text-ink-faint tabular-nums">
                 {i + 1}
@@ -707,13 +718,34 @@ const PlayerList = ({
               {p.display_name}
               {isMe && <span className="ml-1 small-caps text-[9px] text-ink-faint">(you)</span>}
             </span>
+            {totalWords ? (
+              <span
+                className={`mono text-[10px] tabular-nums shrink-0 ${
+                  done ? "text-success" : "text-ink-soft"
+                }`}
+                title={`${claims} of ${totalWords} words found`}
+              >
+                {claims}/{totalWords}
+              </span>
+            ) : null}
+            {done && (
+              <span className="inline-flex items-center gap-1 small-caps text-[9px] text-success bg-success/10 border border-success/30 px-1.5 py-0.5 rounded shrink-0">
+                <Flag className="w-2.5 h-2.5" /> Done
+              </span>
+            )}
             {ranked && (
               <span className="mono text-xs tabular-nums">
                 {p.score.toLocaleString()}
               </span>
             )}
-            {p.finished_at && !ranked && (
-              <span className="small-caps text-[9px] text-primary">done</span>
+            </div>
+            {pct !== null && !ranked && (
+              <div className="mt-1 h-1 w-full bg-muted rounded overflow-hidden">
+                <div
+                  className={`h-full ${done ? "bg-success" : "bg-primary"} transition-all`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
             )}
           </li>
         );
