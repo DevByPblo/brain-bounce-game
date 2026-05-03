@@ -123,6 +123,11 @@ const Coop = () => {
   useEffect(() => {
     if (!match?.next_match_id) return;
     if (match.next_match_id === matchId) return;
+    // Only follow if I'm the host or I opted in — otherwise I'm not a member
+    // of the new lobby and would just see an empty room.
+    const amHost = match.host_player_id === playerId;
+    const meRow = players.find((p) => p.player_id === playerId) ?? null;
+    if (!amHost && !meRow?.rematch_opt_in) return;
     setClaims([]);
     setPlayers([]);
     setStartSummary(null);
@@ -132,7 +137,7 @@ const Coop = () => {
     setMatchId(match.next_match_id);
     setPhase("room"); // land in lobby for next round
     setBusy(null);
-  }, [match?.next_match_id, matchId]);
+  }, [match?.next_match_id, match?.host_player_id, matchId, playerId, players]);
 
   // ─── Match status drives phase transitions ───
   useEffect(() => {
@@ -729,8 +734,12 @@ const PlayerList = ({
               </span>
             ) : null}
             {done && (
-              <span className="inline-flex items-center gap-1 small-caps text-[9px] text-success bg-success/10 border border-success/30 px-1.5 py-0.5 rounded shrink-0">
-                <Flag className="w-2.5 h-2.5" /> Done
+              <span
+                className="inline-flex items-center gap-1 small-caps text-[10px] font-bold text-success bg-success/15 border border-success/40 px-2 py-0.5 rounded-full shrink-0"
+                title={totalWords ? `Finished with ${claims} of ${totalWords} words` : "Finished"}
+              >
+                <Flag className="w-3 h-3" />
+                Done{totalWords ? ` · ${claims}/${totalWords}` : ""}
               </span>
             )}
             {ranked && (
