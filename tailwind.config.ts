@@ -30,6 +30,7 @@ export default {
         },
         rule: "hsl(var(--rule))",
         highlight: "hsl(var(--highlight))",
+        success: "hsl(var(--success))",
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
