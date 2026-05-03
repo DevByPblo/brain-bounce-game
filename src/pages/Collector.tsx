@@ -341,7 +341,7 @@ const Collector = () => {
           }}
         />
       )}
-      <header className="sticky top-0 z-30 border-b border-rule bg-card/95 backdrop-blur-md shadow-sm">
+      <header className="sticky top-0 z-30 border-b border-rule bg-background shadow-sm">
         <div className={`max-w-6xl mx-auto px-6 flex items-center justify-between gap-6 ${compact ? "py-1.5" : "py-3"}`}>
           <Link to="/" className={`serif font-extrabold ${compact ? "text-base" : "text-2xl"}`}>
             Wiki<span className="italic text-primary">Race</span>
