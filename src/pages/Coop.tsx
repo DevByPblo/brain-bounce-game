@@ -123,6 +123,11 @@ const Coop = () => {
   useEffect(() => {
     if (!match?.next_match_id) return;
     if (match.next_match_id === matchId) return;
+    // Only follow if I'm the host or I opted in — otherwise I'm not a member
+    // of the new lobby and would just see an empty room.
+    const amHost = match.host_player_id === playerId;
+    const meRow = players.find((p) => p.player_id === playerId) ?? null;
+    if (!amHost && !meRow?.rematch_opt_in) return;
     setClaims([]);
     setPlayers([]);
     setStartSummary(null);
@@ -132,7 +137,7 @@ const Coop = () => {
     setMatchId(match.next_match_id);
     setPhase("room"); // land in lobby for next round
     setBusy(null);
-  }, [match?.next_match_id, matchId]);
+  }, [match?.next_match_id, match?.host_player_id, matchId, playerId, players]);
 
   // ─── Match status drives phase transitions ───
   useEffect(() => {
