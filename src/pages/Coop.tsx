@@ -13,7 +13,7 @@ import {
 import { getPlayerId, getPlayerName, setPlayerName } from "@/lib/player";
 import {
   claimCoopWord, createCoopRoom, fetchCoopClaims, fetchCoopMatch, fetchCoopPlayers,
-  joinCoopRoom, leaveCoopMatch, markCoopDone, optInRematch, rematchCoopMatch,
+  joinCoopRoom, leaveCoopMatch, markCoopDone, optInRematch, reassignCoopHost, rematchCoopMatch,
   setCoopChasing, startCoopMatch, subscribeCoop,
   type CoopClaimRow, type CoopMatchRow, type CoopPlayerRow,
 } from "@/lib/coop";
@@ -204,6 +204,37 @@ const Coop = () => {
     setRaceActive(phase === "playing");
     return () => setRaceActive(false);
   }, [phase]);
+
+  // ─── Host migration ───
+  // If the current host hasn't appeared in presence for ~8s, the longest-joined
+  // online active player promotes themselves. Idempotent server-side; only the
+  // first qualifying caller wins. Lobby state, opt-ins, scores and timers are
+  // untouched — only host_player_id moves.
+  const lastHostSeenRef = useRef<number>(Date.now());
+  useEffect(() => {
+    if (!matchId || !match) return;
+    if (!["waiting", "playing", "finished"].includes(match.status)) return;
+    const hostId = match.host_player_id;
+    if (!hostId) return;
+    if (presence.has(hostId)) {
+      lastHostSeenRef.current = Date.now();
+      return;
+    }
+    // Host missing. Wait, then nominate.
+    const id = window.setTimeout(() => {
+      if (presence.has(hostId)) return;
+      const candidates = activePlayers
+        .filter((p) => p.player_id !== hostId && presence.has(p.player_id));
+      if (candidates.length === 0) return;
+      // Deterministic: oldest joined online active player.
+      const winner = candidates[0];
+      if (winner.player_id !== playerId) return; // only that player calls
+      void reassignCoopHost(matchId, playerId, playerId).catch((e) => {
+        console.error("host migration failed", e);
+      });
+    }, 8000);
+    return () => window.clearTimeout(id);
+  }, [matchId, match, presence, activePlayers, playerId]);
 
   // ─── Actions ───────────────────────────────────────────────────
   const createRoom = useCallback(async () => {
