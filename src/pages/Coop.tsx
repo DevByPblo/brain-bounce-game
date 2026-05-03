@@ -729,8 +729,12 @@ const PlayerList = ({
               </span>
             ) : null}
             {done && (
-              <span className="inline-flex items-center gap-1 small-caps text-[9px] text-success bg-success/10 border border-success/30 px-1.5 py-0.5 rounded shrink-0">
-                <Flag className="w-2.5 h-2.5" /> Done
+              <span
+                className="inline-flex items-center gap-1 small-caps text-[10px] font-bold text-success bg-success/15 border border-success/40 px-2 py-0.5 rounded-full shrink-0"
+                title={totalWords ? `Finished with ${claims} of ${totalWords} words` : "Finished"}
+              >
+                <Flag className="w-3 h-3" />
+                Done{totalWords ? ` · ${claims}/${totalWords}` : ""}
               </span>
             )}
             {ranked && (
