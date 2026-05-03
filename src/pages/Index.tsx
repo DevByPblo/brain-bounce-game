@@ -397,7 +397,7 @@ const Index = () => {
       <header className="sticky top-0 z-30 border-b border-rule bg-background shadow-sm">
         <div className="max-w-6xl mx-auto px-3 sm:px-6 flex items-center justify-between gap-3 sm:gap-6 py-2 min-h-[48px]">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <div className={`serif font-extrabold whitespace-nowrap ${compact ? "text-sm sm:text-base" : "text-base sm:text-xl"}`}>
+            <div className="serif font-extrabold whitespace-nowrap text-base sm:text-lg">
               Wiki<span className="italic text-primary">Race</span>
             </div>
             {/* Target word — always visible */}
