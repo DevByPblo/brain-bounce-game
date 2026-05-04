@@ -304,6 +304,10 @@ const Coop = () => {
     if (startCountdown === null) return;
     if (startCountdown <= 0) {
       setStartCountdown(null);
+      // Anyone confirmed-host at zero may attempt the start RPC. The server
+      // only updates rows where host_player_id matches the caller, so if a
+      // migration happened mid-countdown the new host's call wins and the
+      // old call is a harmless no-op.
       if (matchId && confirmedHost) {
         void startCoopMatch(matchId, playerId).catch((e) => {
           console.error(e);
@@ -315,6 +319,14 @@ const Coop = () => {
     const id = window.setTimeout(() => setStartCountdown((c) => (c ?? 0) - 1), 1000);
     return () => window.clearTimeout(id);
   }, [startCountdown, confirmedHost, matchId, playerId]);
+
+  // If the match enters 'playing' (e.g. another client started it after a
+  // migration), clear any local countdown so we don't fire a duplicate RPC.
+  useEffect(() => {
+    if (match?.status === "playing" && startCountdown !== null) {
+      setStartCountdown(null);
+    }
+  }, [match?.status, startCountdown]);
 
   const beginStart = useCallback(() => {
     if (!confirmedHost) return;
