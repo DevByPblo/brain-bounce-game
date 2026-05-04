@@ -139,6 +139,9 @@ const Coop = () => {
     setArticleHtml("");
     setCurrentTitle("");
     setChasing(null);
+    // Clear the previous match so the status-driven phase effect doesn't
+    // briefly flip to "finished" using stale data while the new match loads.
+    setMatch(null);
     setMatchId(match.next_match_id);
     setPhase("room"); // land in lobby for next round
     setBusy(null);
@@ -147,12 +150,15 @@ const Coop = () => {
   // ─── Match status drives phase transitions ───
   useEffect(() => {
     if (!match) return;
+    // If the host has already wired up the next round, don't flip to results —
+    // the auto-follow effect will move us into the new lobby.
+    if (match.next_match_id && match.next_match_id !== matchId) return;
     if (match.status === "playing" && phase === "room") setPhase("playing");
     if (match.status === "finished" && phase !== "finished") {
       setPhase("finished");
       setRaceActive(false);
     }
-  }, [match, phase]);
+  }, [match, phase, matchId]);
 
   // ─── Load start article on entering playing ───
   useEffect(() => {
