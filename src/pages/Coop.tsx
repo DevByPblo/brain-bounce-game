@@ -82,6 +82,11 @@ const Coop = () => {
   );
   const me = activePlayers.find((p) => p.player_id === playerId) ?? null;
   const isHost = !!match && match.host_player_id === playerId;
+  // Presence-confirmed host: only this client should fire one-shot host
+  // actions (auto-finish on timer, rematch creation). Prevents the just-
+  // migrated old host (still in React state for a beat) from racing the
+  // new host, and stops a host who is offline-but-stale from acting.
+  const confirmedHost = isHost && presence.has(playerId);
 
   // ─── Realtime subscription ───
   useEffect(() => {
@@ -190,13 +195,14 @@ const Coop = () => {
     return Math.max(0, baseEnd - now);
   }, [match, now]);
 
-  // Auto-finish when timer hits zero (only the host calls finish to avoid races).
+  // Auto-finish when timer hits zero. Only the presence-confirmed host
+  // calls finish — avoids races during/after host migration.
   useEffect(() => {
     if (phase !== "playing" || !matchId) return;
     if (remainingMs > 0) return;
-    if (!isHost) return;
+    if (!confirmedHost) return;
     void supabase.rpc("finish_coop_match", { p_match_id: matchId, p_player_id: playerId });
-  }, [phase, remainingMs, matchId, isHost, playerId]);
+  }, [phase, remainingMs, matchId, confirmedHost, playerId]);
 
   useBlockFind(phase === "playing");
 
@@ -292,7 +298,7 @@ const Coop = () => {
     if (startCountdown === null) return;
     if (startCountdown <= 0) {
       setStartCountdown(null);
-      if (matchId && isHost) {
+      if (matchId && confirmedHost) {
         void startCoopMatch(matchId, playerId).catch((e) => {
           console.error(e);
           toast.error("Couldn't start the round.");
@@ -302,16 +308,16 @@ const Coop = () => {
     }
     const id = window.setTimeout(() => setStartCountdown((c) => (c ?? 0) - 1), 1000);
     return () => window.clearTimeout(id);
-  }, [startCountdown, isHost, matchId, playerId]);
+  }, [startCountdown, confirmedHost, matchId, playerId]);
 
   const beginStart = useCallback(() => {
-    if (!isHost) return;
+    if (!confirmedHost) return;
     if (activePlayers.length < 2) {
       toast.info("Wait for at least one more player.");
       return;
     }
     setStartCountdown(Math.ceil(START_COUNTDOWN_MS / 1000));
-  }, [isHost, activePlayers.length]);
+  }, [confirmedHost, activePlayers.length]);
 
   // Player marks themselves "done" — triggers sudden death after 3.
   const markDone = useCallback(async () => {
@@ -330,7 +336,7 @@ const Coop = () => {
 
   // Host starts the next round (pulls in everyone who opted in).
   const playAgain = useCallback(async () => {
-    if (!matchId || !isHost) return;
+    if (!matchId || !confirmedHost) return;
     setBusy("rematch");
     try {
       const { start, wordList } = await buildRound();
@@ -340,7 +346,7 @@ const Coop = () => {
       toast.error("Couldn't start a new round.");
       setBusy(null);
     }
-  }, [matchId, playerId, isHost]);
+  }, [matchId, playerId, confirmedHost]);
 
   // ─── In-game navigate ───
   const navigate = useCallback(async (title: string) => {
