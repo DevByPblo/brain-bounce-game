@@ -281,6 +281,22 @@ const Coop = () => {
     }
   }, [name, playerId]);
 
+  // Auto-join when the player arrives via a share link (?code=ABC123).
+  // Strips the param after attempting so we don't keep retrying on errors.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const autoJoinedRef = useRef(false);
+  useEffect(() => {
+    if (autoJoinedRef.current) return;
+    if (phase !== "lobby") return;
+    const code = searchParams.get("code");
+    if (!code || code.length < 4) return;
+    autoJoinedRef.current = true;
+    void joinRoom(code.toUpperCase().slice(0, 6));
+    const next = new URLSearchParams(searchParams);
+    next.delete("code");
+    setSearchParams(next, { replace: true });
+  }, [phase, searchParams, setSearchParams, joinRoom]);
+
   const leave = useCallback(async () => {
     if (matchId) {
       try { await leaveCoopMatch(matchId, playerId); } catch (e) { console.error(e); }
