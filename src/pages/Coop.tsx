@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft, Check, Copy, Crown, Flag, Loader2, Lock, Play, Timer,
   Trophy, Users, X, Zap, Share2, Link2,
@@ -139,6 +139,9 @@ const Coop = () => {
     setArticleHtml("");
     setCurrentTitle("");
     setChasing(null);
+    // Clear the previous match so the status-driven phase effect doesn't
+    // briefly flip to "finished" using stale data while the new match loads.
+    setMatch(null);
     setMatchId(match.next_match_id);
     setPhase("room"); // land in lobby for next round
     setBusy(null);
@@ -147,12 +150,15 @@ const Coop = () => {
   // ─── Match status drives phase transitions ───
   useEffect(() => {
     if (!match) return;
+    // If the host has already wired up the next round, don't flip to results —
+    // the auto-follow effect will move us into the new lobby.
+    if (match.next_match_id && match.next_match_id !== matchId) return;
     if (match.status === "playing" && phase === "room") setPhase("playing");
     if (match.status === "finished" && phase !== "finished") {
       setPhase("finished");
       setRaceActive(false);
     }
-  }, [match, phase]);
+  }, [match, phase, matchId]);
 
   // ─── Load start article on entering playing ───
   useEffect(() => {
@@ -275,6 +281,22 @@ const Coop = () => {
     }
   }, [name, playerId]);
 
+  // Auto-join when the player arrives via a share link (?code=ABC123).
+  // Strips the param after attempting so we don't keep retrying on errors.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const autoJoinedRef = useRef(false);
+  useEffect(() => {
+    if (autoJoinedRef.current) return;
+    if (phase !== "lobby") return;
+    const code = searchParams.get("code");
+    if (!code || code.length < 4) return;
+    autoJoinedRef.current = true;
+    void joinRoom(code.toUpperCase().slice(0, 6));
+    const next = new URLSearchParams(searchParams);
+    next.delete("code");
+    setSearchParams(next, { replace: true });
+  }, [phase, searchParams, setSearchParams, joinRoom]);
+
   const leave = useCallback(async () => {
     if (matchId) {
       try { await leaveCoopMatch(matchId, playerId); } catch (e) { console.error(e); }
@@ -298,6 +320,10 @@ const Coop = () => {
     if (startCountdown === null) return;
     if (startCountdown <= 0) {
       setStartCountdown(null);
+      // Anyone confirmed-host at zero may attempt the start RPC. The server
+      // only updates rows where host_player_id matches the caller, so if a
+      // migration happened mid-countdown the new host's call wins and the
+      // old call is a harmless no-op.
       if (matchId && confirmedHost) {
         void startCoopMatch(matchId, playerId).catch((e) => {
           console.error(e);
@@ -309,6 +335,14 @@ const Coop = () => {
     const id = window.setTimeout(() => setStartCountdown((c) => (c ?? 0) - 1), 1000);
     return () => window.clearTimeout(id);
   }, [startCountdown, confirmedHost, matchId, playerId]);
+
+  // If the match enters 'playing' (e.g. another client started it after a
+  // migration), clear any local countdown so we don't fire a duplicate RPC.
+  useEffect(() => {
+    if (match?.status === "playing" && startCountdown !== null) {
+      setStartCountdown(null);
+    }
+  }, [match?.status, startCountdown]);
 
   const beginStart = useCallback(() => {
     if (!confirmedHost) return;
