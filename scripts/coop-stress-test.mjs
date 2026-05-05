@@ -140,9 +140,10 @@ async function main() {
 
     // Verify carry-over (host + opted-in)
     const { data: nextLobby } = await host.sb.from("coop_players").select("*").eq("match_id", matchId);
-    nextLobby.length >= PLAYER_COUNT - 1
-      ? ok(`Rematch carried ${nextLobby.length} players`)
-      : fail(`Only ${nextLobby.length} carried into rematch`);
+    const expectedCarry = PLAYER_COUNT - dropped.size;
+    nextLobby.length === expectedCarry
+      ? ok(`Rematch carried ${nextLobby.length}/${expectedCarry} players`)
+      : fail(`Carried ${nextLobby.length}, expected ${expectedCarry}`);
 
     // Dropped players should NOT be in next lobby
     const leaked = nextLobby.find((p) => dropped.has(p.player_id));
