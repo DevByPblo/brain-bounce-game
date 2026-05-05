@@ -31,6 +31,8 @@ async function main() {
     sb: makeClient(),
   }));
   let host = players[0];
+  const dropped = new Set();
+  const active = () => players.filter((p) => !dropped.has(p.id));
   log(`Spawned ${PLAYER_COUNT} players. Host: ${host.name}`);
 
   // ── Round 1: Create + join ────────────────────────────────────────────────
@@ -71,15 +73,16 @@ async function main() {
     let { data: m2 } = await host.sb.from("coop_matches").select("*").eq("id", matchId).single();
     m2.start_countdown_at === m.start_countdown_at ? ok("Duplicate start did not reset countdown") : fail("countdown re-set on second start");
 
-    // Players claim words concurrently
+    // Players claim words concurrently (only those still in the match).
+    const live = active();
     const claimPromises = [];
     wordList.forEach((w, i) => {
-      const p = players[i % PLAYER_COUNT];
+      const p = live[i % live.length];
       claimPromises.push(p.sb.rpc("claim_coop_word", { p_match_id: matchId, p_player_id: p.id, p_word: w })
         .then((r) => ({ w, ok: r.data === true, err: r.error?.message })));
       // Race: have a second player try the same word
       if (i % 3 === 0) {
-        const q = players[(i + 1) % PLAYER_COUNT];
+        const q = live[(i + 1) % live.length];
         claimPromises.push(q.sb.rpc("claim_coop_word", { p_match_id: matchId, p_player_id: q.id, p_word: w })
           .then((r) => ({ w, ok: r.data === true, err: r.error?.message, race: true })));
       }
@@ -107,8 +110,9 @@ async function main() {
     // ── HOST DROP simulation ──
     log(`Simulating host drop: ${host.name} leaves`);
     await host.sb.rpc("leave_coop_match", { p_match_id: matchId, p_player_id: host.id });
-    // New host = next player still active
-    const newHostCandidate = players.find((p) => p.id !== host.id);
+    dropped.add(host.id);
+    // New host = next player still active in the match
+    const newHostCandidate = active()[0];
     await newHostCandidate.sb.rpc("reassign_coop_host", {
       p_match_id: matchId, p_caller_id: newHostCandidate.id, p_candidate_id: newHostCandidate.id,
     });
@@ -118,8 +122,8 @@ async function main() {
       : fail(`Host migration failed (host_player_id=${mAfterDrop.host_player_id})`);
     host = newHostCandidate;
 
-    // Opt-in everyone for rematch
-    await Promise.all(players.filter((p) => p.id !== players[0].id).map((p) =>
+    // Opt-in everyone still in the match for rematch
+    await Promise.all(active().map((p) =>
       p.sb.rpc("opt_in_rematch", { p_match_id: matchId, p_player_id: p.id, p_opt_in: true })
     ));
 
@@ -140,10 +144,9 @@ async function main() {
       ? ok(`Rematch carried ${nextLobby.length} players`)
       : fail(`Only ${nextLobby.length} carried into rematch`);
 
-    // Original (now-dropped) host should NOT be in next lobby
-    nextLobby.find((p) => p.player_id === players[0].id)
-      ? fail("Dropped host appeared in rematch lobby")
-      : ok("Dropped host correctly excluded");
+    // Dropped players should NOT be in next lobby
+    const leaked = nextLobby.find((p) => dropped.has(p.player_id));
+    leaked ? fail(`Dropped player ${leaked.display_name} appeared in rematch lobby`) : ok("Dropped players correctly excluded");
   }
 
   log(`\n========== Stress test complete: ${failures === 0 ? "PASS ✅" : `${failures} failure(s) ❌`} ==========`);
