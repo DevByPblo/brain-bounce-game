@@ -111,16 +111,14 @@ async function main() {
     log(`Simulating host drop: ${host.name} leaves`);
     await host.sb.rpc("leave_coop_match", { p_match_id: matchId, p_player_id: host.id });
     dropped.add(host.id);
-    // New host = next player still active in the match
-    const newHostCandidate = active()[0];
-    await newHostCandidate.sb.rpc("reassign_coop_host", {
-      p_match_id: matchId, p_caller_id: newHostCandidate.id, p_candidate_id: newHostCandidate.id,
-    });
-    const { data: mAfterDrop } = await host.sb.from("coop_matches").select("host_player_id").eq("id", matchId).single();
-    mAfterDrop.host_player_id === newHostCandidate.id
-      ? ok(`Host migrated → ${newHostCandidate.name}`)
+    // Server auto-reassigns host on leave; trust it.
+    const { data: mAfterDrop } = await players[0].sb
+      .from("coop_matches").select("host_player_id").eq("id", matchId).single();
+    const newHost = active().find((p) => p.id === mAfterDrop.host_player_id);
+    newHost
+      ? ok(`Host migrated → ${newHost.name}`)
       : fail(`Host migration failed (host_player_id=${mAfterDrop.host_player_id})`);
-    host = newHostCandidate;
+    host = newHost || active()[0];
 
     // Opt-in everyone still in the match for rematch
     await Promise.all(active().map((p) =>
