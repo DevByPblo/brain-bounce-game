@@ -30,6 +30,32 @@ const DEFAULT_DURATION_MS = 5 * 60 * 1000;
 const SUDDEN_DEATH_MS = 2 * 60 * 1000;
 const START_COUNTDOWN_MS = 5_000;
 
+/** Persistent log of recently-used wiki titles so consecutive rounds vary. */
+const USED_WORDS_KEY = "coop:usedWords:v1";
+const USED_WORDS_CAP = 240; // ~20 rounds before recycling
+const USED_WORDS_TRIM = 60; // when full, drop the oldest 60
+
+const loadUsedWords = (): string[] => {
+  try {
+    const raw = localStorage.getItem(USED_WORDS_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveUsedWords = (titles: string[]) => {
+  try {
+    let next = titles;
+    if (next.length > USED_WORDS_CAP) next = next.slice(next.length - (USED_WORDS_CAP - USED_WORDS_TRIM));
+    localStorage.setItem(USED_WORDS_KEY, JSON.stringify(next));
+  } catch {
+    /* ignore quota */
+  }
+};
+
 const fmtTime = (ms: number) => {
   const s = Math.max(0, Math.ceil(ms / 1000));
   const m = Math.floor(s / 60);
@@ -37,18 +63,43 @@ const fmtTime = (ms: number) => {
   return `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
 };
 
-/** Build a fresh wiki word list (12 random titles + a start). */
+/**
+ * Build a fresh wiki word list (12 random titles + a start).
+ * Avoids titles used in recent rounds (persisted in localStorage) so
+ * consecutive sessions don't keep drawing from the same small set.
+ */
 const buildRound = async (): Promise<{ start: string; wordList: string[] }> => {
-  const start = await getRandomTitle();
+  const used = loadUsedWords();
+  const usedSet = new Set(used.map((t) => normaliseTitle(t)));
+  const seen = new Set<string>();
+
+  const pickFresh = async (maxTries = 8): Promise<string> => {
+    let last = "";
+    for (let i = 0; i < maxTries; i++) {
+      const t = await getRandomTitle();
+      last = t;
+      const k = normaliseTitle(t);
+      if (seen.has(k)) continue;
+      if (usedSet.has(k)) continue;
+      return t;
+    }
+    // Fallback: accept a duplicate-vs-history title rather than loop forever.
+    return last || (await getRandomTitle());
+  };
+
+  const start = await pickFresh();
+  seen.add(normaliseTitle(start));
+
   const wordList: string[] = [];
-  const seen = new Set<string>([normaliseTitle(start)]);
   while (wordList.length < WORD_COUNT) {
-    const t = await getRandomTitle();
+    const t = await pickFresh();
     const k = normaliseTitle(t);
     if (seen.has(k)) continue;
     seen.add(k);
     wordList.push(t);
   }
+
+  saveUsedWords([...used, start, ...wordList]);
   return { start, wordList };
 };
 
