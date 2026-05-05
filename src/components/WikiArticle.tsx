@@ -74,6 +74,27 @@ export const WikiArticle = ({
       img.setAttribute("decoding", "async");
     });
 
+    // Strip any inline event handler attributes (onerror, onload, onclick, ...)
+    // and javascript:/data: URLs from every element. Wikipedia sanitises its
+    // own output, but we defend in depth in case the upstream API is ever
+    // compromised or returns unexpected content.
+    doc.querySelectorAll("*").forEach((el) => {
+      for (const attr of Array.from(el.attributes)) {
+        const name = attr.name.toLowerCase();
+        const value = attr.value;
+        if (name.startsWith("on")) {
+          el.removeAttribute(attr.name);
+          continue;
+        }
+        if (
+          (name === "href" || name === "src" || name === "xlink:href") &&
+          /^\s*(javascript|data|vbscript):/i.test(value)
+        ) {
+          el.removeAttribute(attr.name);
+        }
+      }
+    });
+
     // Drop everything from the "References" / "External links" / "See also" h2 onward.
     const stopHeadings = ["References", "External links", "See also", "Notes", "Bibliography", "Further reading"];
     const headlines = doc.querySelectorAll("h2 .mw-headline, h2");
