@@ -853,7 +853,7 @@ const IdleScreen = ({
           <>Begin the race <ArrowRight className="w-4 h-4 ml-2" /></>
         )}
       </Button>
-      </>
+      </div>
       )}
 
       <div className="hairline my-10 mx-auto w-24" />
