@@ -605,6 +605,7 @@ const IdleScreen = ({
   const favoriteDefs = favorites
     .map((label) => CATEGORIES.find((c) => c.label === label))
     .filter((c): c is (typeof CATEGORIES)[number] => Boolean(c));
+  const [section, setSection] = useState<"multiplayer" | "solo">("multiplayer");
   return (
   <main className="relative z-10 min-h-screen flex items-center justify-center px-4 sm:px-6 py-10 sm:py-16">
     <div className="max-w-3xl w-full text-center">
@@ -619,6 +620,97 @@ const IdleScreen = ({
       </p>
       <div className="hairline my-6 sm:my-8 mx-auto w-24" />
 
+      {/* Top-level selector: Multiplayer (default) vs Solo */}
+      <div
+        role="tablist"
+        aria-label="Game section"
+        className="inline-flex paper-card p-1 mb-6 mx-auto"
+      >
+        <button
+          role="tab"
+          aria-selected={section === "multiplayer"}
+          onClick={() => setSection("multiplayer")}
+          className={`px-5 sm:px-7 py-2 rounded-sm small-caps text-xs transition-colors ${
+            section === "multiplayer"
+              ? "bg-primary text-primary-foreground"
+              : "text-ink-soft hover:text-ink"
+          }`}
+        >
+          Multiplayer
+        </button>
+        <button
+          role="tab"
+          aria-selected={section === "solo"}
+          onClick={() => setSection("solo")}
+          className={`px-5 sm:px-7 py-2 rounded-sm small-caps text-xs transition-colors ${
+            section === "solo"
+              ? "bg-primary text-primary-foreground"
+              : "text-ink-soft hover:text-ink"
+          }`}
+        >
+          Solo
+        </button>
+      </div>
+
+      {section === "multiplayer" && (
+        <div className="grid gap-4 mb-6 text-left">
+          <Link to="/multiplayer" className="block group">
+            <div className="paper-card p-6 sm:p-7 flex items-center gap-5 hover:translate-y-[-1px] transition-transform">
+              <div className="shrink-0 w-14 h-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
+                <Swords className="w-6 h-6" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="small-caps text-[10px] text-ink-faint mb-0.5">
+                  Recommended · Instant match
+                </div>
+                <div className="serif text-xl sm:text-2xl font-extrabold">
+                  Quick Match
+                </div>
+                <div className="text-sm text-ink-soft">
+                  Race a live opponent. First to the target wins.
+                </div>
+              </div>
+              <ArrowRight className="w-5 h-5 text-primary shrink-0 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </Link>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            <Link to="/coop" className="block">
+              <div className="paper-card p-5 flex items-start gap-3 h-full hover:translate-y-[-1px] transition-transform">
+                <div className="shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="serif font-bold">Co-op · Up to 10</div>
+                  <div className="text-xs text-ink-soft">
+                    Play with friends. Most words wins.
+                  </div>
+                </div>
+              </div>
+            </Link>
+            <button
+              type="button"
+              onClick={() => setSection("solo")}
+              className="block text-left"
+            >
+              <div className="paper-card p-5 flex items-start gap-3 h-full hover:translate-y-[-1px] transition-transform">
+                <div className="shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                  <Shuffle className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="serif font-bold">Just want to play alone?</div>
+                  <div className="text-xs text-ink-soft">
+                    Solo races, daily challenge, and more.
+                  </div>
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {section === "solo" && (
+      <>
       {/* Mode */}
       <div className="grid sm:grid-cols-3 gap-3 mb-4 text-left">
         <ModeCard
@@ -761,40 +853,10 @@ const IdleScreen = ({
           <>Begin the race <ArrowRight className="w-4 h-4 ml-2" /></>
         )}
       </Button>
+      </>
+      )}
 
       <div className="hairline my-10 mx-auto w-24" />
-
-      <div className="grid sm:grid-cols-2 gap-3">
-        <Link to="/multiplayer" className="block">
-          <div className="paper-card p-5 text-left flex items-center gap-4 hover:translate-y-[-1px] transition-transform h-full">
-            <div className="shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-              <Swords className="w-5 h-5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="serif font-bold">Race a stranger live</div>
-              <div className="text-xs text-ink-soft">
-                Quick-match against another reader. First to the target wins.
-              </div>
-            </div>
-            <ArrowRight className="w-4 h-4 text-ink-soft shrink-0" />
-          </div>
-        </Link>
-
-        <Link to="/coop" className="block">
-          <div className="paper-card p-5 text-left flex items-center gap-4 hover:translate-y-[-1px] transition-transform h-full">
-            <div className="shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-              <Users className="w-5 h-5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="serif font-bold">Play with friends · Co-op</div>
-              <div className="text-xs text-ink-soft">
-                Up to 10 readers. 12 targets. Most words wins — host starts when ready.
-              </div>
-            </div>
-            <ArrowRight className="w-4 h-4 text-ink-soft shrink-0" />
-          </div>
-        </Link>
-      </div>
 
       <div className="mt-10">
         <Leaderboard />
