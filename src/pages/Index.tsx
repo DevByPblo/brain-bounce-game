@@ -653,7 +653,7 @@ const IdleScreen = ({
       </div>
 
       {section === "multiplayer" && (
-        <div className="grid gap-4 mb-6 text-left">
+        <div key="sec-mp" className="section-fade grid gap-4 mb-6 text-left">
           <Link to="/multiplayer" className="block group">
             <div className="paper-card p-6 sm:p-7 flex items-center gap-5 hover:translate-y-[-1px] transition-transform">
               <div className="shrink-0 w-14 h-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
@@ -710,7 +710,7 @@ const IdleScreen = ({
       )}
 
       {section === "solo" && (
-      <>
+      <div key="sec-solo" className="section-fade">
       {/* Mode */}
       <div className="grid sm:grid-cols-3 gap-3 mb-4 text-left">
         <ModeCard
@@ -853,7 +853,7 @@ const IdleScreen = ({
           <>Begin the race <ArrowRight className="w-4 h-4 ml-2" /></>
         )}
       </Button>
-      </>
+      </div>
       )}
 
       <div className="hairline my-10 mx-auto w-24" />
